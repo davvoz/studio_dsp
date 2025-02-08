@@ -1,0 +1,14 @@
+.oscillator-panel .control-container {
+    margin: 10px;
+    padding: 5px;
+    border-bottom: 1px solid #ddd;
+}
+
+.oscillator-panel .control-container label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.oscillator-panel .control-container input[type="range"] {
+    width: 100%;
+}

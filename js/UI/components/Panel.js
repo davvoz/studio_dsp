@@ -19,11 +19,18 @@ export default class Panel extends AbstractUIComponent {
     }
 
     addControl(control) {
-        this.controls.set(control.id, control);
-        if (this.element) {
-            const content = this.element.querySelector('.panel-content');
-            content.appendChild(control.create());
+        const controlContainer = document.createElement('div');
+        controlContainer.className = 'control-container';
+        
+        // Use createElement instead of create
+        const element = control.createElement();
+        if (element) {
+            controlContainer.appendChild(element);
+            this.element.appendChild(controlContainer);
         }
+
+        this.controls.set(control.id, control);
+        return control;
     }
 
     removeControl(controlId) {
@@ -36,6 +43,7 @@ export default class Panel extends AbstractUIComponent {
 
     create() {
         this.element = document.createElement('div');
+        this.element.id = this.id;
         this.element.className = `panel ${this.options.className}`;
         this.element.style.width = this.options.width;
         this.element.style.height = this.options.height;

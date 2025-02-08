@@ -1,8 +1,9 @@
 import Oscillator from '../../core/audio/components/Oscillator.js';
 import Panel from '../components/Panel.js';
+import MIDIMappableSlider from '../components/controls/MIDIMappableSlider.js';
 
-class OscillatorPanel extends Panel {
-    constructor(audioEngine) {
+export default class OscillatorPanel extends Panel {
+    constructor(audioEngine, midiManager) {
         super('oscillator-panel', {
             title: 'DSP Oscillator',
             width: '400px',
@@ -15,66 +16,112 @@ class OscillatorPanel extends Panel {
         if (!audioEngine || !audioEngine.audioContext) {
             throw new Error('AudioEngine with valid audioContext is required');
         }
+
+        if (!midiManager) {
+            throw new Error('MIDIManager is required');
+        }
         
         this.audioEngine = audioEngine;
+        this.midiManager = midiManager;
         this.oscillator = new Oscillator(this.audioEngine.audioContext, 'osc1');
         this.isPlaying = false;
+        this.controls = new Map();
     }
 
     create() {
         super.create();
-        const content = document.createElement('div');
         
         this.element.classList.add('oscillator-panel');
-        
-        // Create waveform selector
         this.createWaveformSelector();
+        this.createPlayControl();
+        this.audioEngine.registerComponent(this.oscillator);
+    }
 
-        // Create sliders
+    setupControls() {
         const sliders = [
             {
-                id: 'frequency',
+                id: `${this.id}_frequency`,  // Prefisso con l'ID del pannello
                 min: 20,
                 max: 2000,
                 step: 0.1,
-                value: 440,
+                initialValue: 440,
                 label: 'Frequency (Hz)',
-                onChange: (value) => this.oscillator.setParameter('frequency', value)
+                onChange: (value) => {
+                    this.oscillator.setParameter('frequency', parseFloat(value));
+                }
             },
             {
-                id: 'detune',
+                id: `${this.id}_detune`,
                 min: -1200,
                 max: 1200,
                 step: 1,
-                value: 0,
+                initialValue: 0,
                 label: 'Detune (cents)',
-                onChange: (value) => this.oscillator.setParameter('detune', value)
+                midiCC: 94,
+                onChange: (value) => this.oscillator.setParameter('detune', parseFloat(value))
             },
             {
-                id: 'pan',
+                id: `${this.id}_pan`,
                 min: -1,
                 max: 1,
                 step: 0.01,
-                value: 0,
+                initialValue: 0,
                 label: 'Pan',
-                onChange: (value) => this.oscillator.setParameter('pan', value)
+                midiCC: 10,
+                onChange: (value) => this.oscillator.setParameter('pan', parseFloat(value))
             },
             {
-                id: 'mix',
+                id: `${this.id}_mix`,
                 min: 0,
                 max: 1,
                 step: 0.01,
-                value: 1,
+                initialValue: 1,
                 label: 'Mix',
-                onChange: (value) => this.oscillator.setParameter('mix', value)
+                midiCC: 8,
+                onChange: (value) => this.oscillator.setParameter('mix', parseFloat(value))
             }
         ];
 
-        sliders.map(config => this.createSlider(config))
-            .forEach(control => this.element.appendChild(control));
+        sliders.forEach(config => {
+            const control = new MIDIMappableSlider({
+                ...config,
+                midiManager: this.midiManager
+            });
+            
+            this.addControl(control);
+            
+            control.setValue(config.initialValue);
+            this.oscillator.setParameter(config.id, config.initialValue);
+        });
+    }
 
-        this.createPlayControl();
-        this.audioEngine.registerComponent(this.oscillator);
+    addControl(control) {
+        // Crea un container per il controllo
+        const controlContainer = document.createElement('div');
+        controlContainer.className = 'control-container';
+        
+        // Aggiungi il controllo al DOM
+        const element = control.createElement();
+        if (element) {
+            controlContainer.appendChild(element);
+            this.element.appendChild(controlContainer);
+        }
+
+        // Memorizza il controllo nella Map
+        this.controls.set(control.id, control);
+        return control;
+    }
+
+    createControl(ControlClass, options) {
+        const control = new ControlClass({
+            ...options,
+            midiManager: this.midiManager // Assicurati che questo venga passato
+        });
+        
+        // Aggiungi debug per verificare la creazione del controllo
+        console.log('Created control:', control.id, control);
+        
+        return this.addControl(control);
     }
 
     createWaveformSelector() {
@@ -119,11 +166,11 @@ class OscillatorPanel extends Panel {
                 
                 if (this.isPlaying) {
                     console.log('Stopping oscillator');
-                    await this.oscillator.stop();
+                    this.oscillator.stop();
                     playButton.textContent = 'Play';
                 } else {
                     console.log('Starting oscillator');
-                    await this.oscillator.start();
+                    this.oscillator.start();
                     playButton.textContent = 'Stop';
                 }
                 this.isPlaying = !this.isPlaying;
@@ -136,32 +183,6 @@ class OscillatorPanel extends Panel {
         this.element.appendChild(playButton);
     }
 
-    createSlider({ id, min, max, step, value, label, onChange }) {
-        const container = document.createElement('div');
-        container.className = 'control-group';
-
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.min = min;
-        slider.max = max;
-        slider.step = step;
-        slider.value = value;
-
-        const valueDisplay = document.createElement('span');
-        valueDisplay.textContent = value;
-
-        slider.addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            valueDisplay.textContent = value;
-            onChange(value);
-        });
-
-        this.addLabel(container, label, slider);
-        container.appendChild(valueDisplay);
-
-        return container;
-    }
-
     addLabel(container, text, element) {
         const label = document.createElement('label');
         label.textContent = text;
@@ -171,9 +192,8 @@ class OscillatorPanel extends Panel {
     }
 
     dispose() {
+        // Rimuovi la chiamata a unregisterControl
         this.audioEngine.unregisterComponent(this.oscillator.id);
         super.dispose();
     }
 }
-
-export default OscillatorPanel;

@@ -23,10 +23,11 @@ export default class MainPanel extends Panel {
         const volumeControl = this.createControl(
             MIDIMappableSlider,
             {
-                id: 'masterVolume',
+                id: `${this.id}_masterVolume`,  // Prefisso con l'ID del pannello
                 label: 'Master Volume',
-                midiCC: 7, // Standard MIDI CC for volume
-                initialValue: 100
+                initialValue: 100,
+                min: 0,
+                max: 100
             }
         );
 
@@ -34,11 +35,12 @@ export default class MainPanel extends Panel {
         const reverbMix = this.createControl(
             MIDIMappableSlider,
             {
-                id: 'reverbMix',
+                id: `${this.id}_reverbMix`,  // Prefisso con l'ID del pannello
                 label: 'Reverb Mix',
-                midiCC: 91, // Standard MIDI CC for reverb
                 initialValue: 0,
-                disabled: true
+                disabled: true,
+                min: 0,
+                max: 100
             }
         );
 
@@ -52,14 +54,32 @@ export default class MainPanel extends Panel {
             }
         );
 
-        // Register with MIDI manager
-        this.midiManager.registerControl('masterVolume', volumeControl);
-        this.midiManager.registerControl('reverbMix', reverbMix);
+        // Rimuovi le chiamate a registerControl che non esistono più
+        // this.midiManager.registerControl('masterVolume', volumeControl);
+        // this.midiManager.registerControl('reverbMix', reverbMix);
+    }
+
+    addControl(control) {
+        const controlContainer = document.createElement('div');
+        controlContainer.className = 'control-container';
+        
+        // Use createElement instead of create
+        const element = control.createElement();
+        if (element) {
+            controlContainer.appendChild(element);
+            this.element.appendChild(controlContainer);
+        }
+
+        // Store the control
+        this.controls.set(control.id, control);
+        return control;
     }
 
     createControl(ControlClass, options) {
-        const control = new ControlClass(options);
-        this.addControl(control);
-        return control;
+        const control = new ControlClass({
+            ...options,
+            midiManager: this.midiManager
+        });
+        return this.addControl(control);
     }
 }

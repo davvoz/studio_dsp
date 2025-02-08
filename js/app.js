@@ -26,7 +26,7 @@ class StudioDSPDemo {
         // Create panels
         const mainPanel = new MainPanel(this.midiManager);
         const midiPanel = new MIDIPanel(this.midiManager);
-        const oscillatorPanel = new OscillatorPanel(this.audioEngine);  // Pass audioEngine instead of midiManager
+        const oscillatorPanel = new OscillatorPanel(this.audioEngine, this.midiManager);  // Pass both audioEngine and midiManager
 
         // Add panels to UI and position them
         this.uiManager.addComponent(mainPanel);
@@ -38,6 +38,7 @@ class StudioDSPDemo {
         midiPanel.setPosition(440, 20);
 
         this.uiManager.addComponent(oscillatorPanel);
+        oscillatorPanel.setupControls();  // Aggiungiamo questa chiamata
         oscillatorPanel.setPosition(20, 300);
     }
 }
