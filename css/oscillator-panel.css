@@ -1,0 +1,55 @@
+.oscillator-panel {
+    background: #2a2a2a;
+    padding: 15px;
+    border-radius: 5px;
+    width: 300px;
+}
+
+.oscillator-panel h2 {
+    color: #fff;
+    margin-bottom: 15px;
+}
+
+.control-group {
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.control-group label {
+    color: #ddd;
+    margin-bottom: 5px;
+}
+
+.control-group input[type="range"] {
+    width: 100%;
+    margin: 5px 0;
+}
+
+.control-group select {
+    padding: 5px;
+    background: #3a3a3a;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 3px;
+}
+
+.control-group span {
+    color: #aaa;
+    font-size: 0.9em;
+}
+
+.play-button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 15px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.play-button:hover {
+    background: #45a049;
+}
