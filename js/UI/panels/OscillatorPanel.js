@@ -64,11 +64,24 @@ export default class OscillatorPanel extends Panel {
                 id: `${this.id}_pan`,
                 min: -1,
                 max: 1,
-                step: 0.01,
+                step: 0.01,  // Rendiamo il passo più fine
                 initialValue: 0,
-                label: 'Pan',
+                label: 'Pan L < > R',  // Etichetta più chiara
                 midiCC: 10,
-                onChange: (value) => this.oscillator.setParameter('pan', parseFloat(value))
+                onChange: (value) => {
+                    const panValue = parseFloat(value);
+                    console.log('Pan value:', panValue); // Debug
+                    this.oscillator.setParameter('pan', panValue);
+                    
+                    // Aggiorna l'etichetta con la posizione
+                    const label = this.element.querySelector(`label[for="${this.id}_pan"]`);
+                    if (label) {
+                        const position = panValue < 0 ? `L ${Math.abs(panValue*100).toFixed(0)}%` :
+                                       panValue > 0 ? `R ${Math.abs(panValue*100).toFixed(0)}%` : 
+                                       'C';
+                        label.textContent = `Pan: ${position}`;
+                    }
+                }
             },
             {
                 id: `${this.id}_mix`,
@@ -85,29 +98,46 @@ export default class OscillatorPanel extends Panel {
         sliders.forEach(config => {
             const control = new MIDIMappableSlider({
                 ...config,
-                midiManager: this.midiManager
+                midiManager: this.midiManager,
+                className: config.id.includes('pan') ? 'pan-slider' : ''  // Classe speciale per lo slider del pan
             });
             
-            this.addControl(control);
+            // Aggiungi label con ID per referenza
+            const label = document.createElement('label');
+            label.setAttribute('for', config.id);
+            label.textContent = config.label;
             
+            this.addControl(control);
             control.setValue(config.initialValue);
-            this.oscillator.setParameter(config.id, config.initialValue);
+            
+            // Trigger onChange per impostare il valore iniziale
+            config.onChange(config.initialValue);
         });
     }
 
     addControl(control) {
-        // Crea un container per il controllo
+        // Find or create the controls container
+        let controlsContainer = this.element.querySelector('.controls-container');
+        if (!controlsContainer) {
+            const content = this.element.querySelector('.panel-content');
+            if (!content) {
+                console.error('Panel content not found');
+                return;
+            }
+            controlsContainer = document.createElement('div');
+            controlsContainer.className = 'controls-container';
+            content.appendChild(controlsContainer);
+        }
+
         const controlContainer = document.createElement('div');
         controlContainer.className = 'control-container';
         
-        // Aggiungi il controllo al DOM
         const element = control.createElement();
         if (element) {
             controlContainer.appendChild(element);
-            this.element.appendChild(controlContainer);
+            controlsContainer.appendChild(controlContainer);
         }
 
-        // Memorizza il controllo nella Map
         this.controls.set(control.id, control);
         return control;
     }
@@ -129,7 +159,6 @@ export default class OscillatorPanel extends Panel {
         waveformDiv.className = 'control-group';
         const waveformSelect = document.createElement('select');
         
-        // Map waveform values to numeric indices
         const waveforms = {
             'Sine': Oscillator.WAVEFORMS.SINE,
             'Square': Oscillator.WAVEFORMS.SQUARE,
@@ -149,7 +178,21 @@ export default class OscillatorPanel extends Panel {
         });
 
         this.addLabel(waveformDiv, 'Waveform', waveformSelect);
-        this.element.appendChild(waveformDiv);
+        
+        // Instead of adding directly to panel element, use addControl
+        const controlContainer = document.createElement('div');
+        controlContainer.className = 'control-container';
+        controlContainer.appendChild(waveformDiv);
+        
+        let controlsContainer = this.element.querySelector('.controls-container');
+        if (!controlsContainer) {
+            const content = this.element.querySelector('.panel-content');
+            controlsContainer = document.createElement('div');
+            controlsContainer.className = 'controls-container';
+            content.appendChild(controlsContainer);
+        }
+        
+        controlsContainer.appendChild(controlContainer);
     }
 
     createPlayControl() {
@@ -157,6 +200,23 @@ export default class OscillatorPanel extends Panel {
         playButton.className = 'play-button';
         playButton.textContent = 'Play';
         
+        // Create a container for the play button
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'control-container';
+        buttonContainer.appendChild(playButton);
+        
+        // Add to controls container
+        let controlsContainer = this.element.querySelector('.controls-container');
+        if (!controlsContainer) {
+            const content = this.element.querySelector('.panel-content');
+            controlsContainer = document.createElement('div');
+            controlsContainer.className = 'controls-container';
+            content.appendChild(controlsContainer);
+        }
+        
+        controlsContainer.appendChild(buttonContainer);
+        
+        // Rest of the play button logic
         playButton.addEventListener('click', async () => {
             try {
                 // Resume the audio context directly
@@ -179,8 +239,6 @@ export default class OscillatorPanel extends Panel {
                 console.error('Error toggling oscillator:', err);
             }
         });
-        
-        this.element.appendChild(playButton);
     }
 
     addLabel(container, text, element) {

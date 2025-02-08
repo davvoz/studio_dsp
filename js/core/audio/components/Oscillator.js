@@ -1,4 +1,6 @@
 import AbstractDSPProducer from '../processes/AbstractDSPProducer.js';
+import Gain from './Gain.js';
+import StereoPanner from './StereoPanner.js';  // Aggiungi import
 
 const WORKLET_URL = 'js/core/audio/worklet/OscillatorProcessor.js'; // rimosso lo slash iniziale
 
@@ -42,14 +44,20 @@ export default class Oscillator extends AbstractDSPProducer {
                 numberOfOutputs: 1
             });
             
+            const gainNode = new Gain(this.audioContext, `${this.id}_gain`);
+            const pannerNode = new StereoPanner(this.audioContext, `${this.id}_panner`);
+            
+            await gainNode.initialize();
+            await pannerNode.initialize();
+            
             const nodes = {
                 worklet,
-                gain: this.audioContext.createGain(),
-                pan: this.audioContext.createStereoPanner()
+                gain: gainNode,
+                panner: pannerNode
             };
 
-            // Gain molto basso per evitare distorsione
-            nodes.gain.gain.value = 0.2;
+            // Imposta il gain iniziale basso
+            gainNode.setParameter('gain', 0.2);
             
             Object.entries(nodes).forEach(([key, node]) => {
                 this.nodes.set(key, node);
@@ -60,7 +68,6 @@ export default class Oscillator extends AbstractDSPProducer {
             // Verifica connessioni
             console.log('Audio routing:', {
                 workletParams: [...worklet.parameters.keys()],
-                gainValue: nodes.gain.gain.value,
                 context: this.audioContext.state
             });
 
@@ -78,16 +85,31 @@ export default class Oscillator extends AbstractDSPProducer {
     _setupRouting() {
         const worklet = this.nodes.get('worklet');
         const gain = this.nodes.get('gain');
-        const pan = this.nodes.get('pan');
+        const panner = this.nodes.get('panner');
 
-        worklet.connect(gain);
-        gain.connect(pan);
-        pan.connect(this.audioContext.destination);
+        if (!worklet || !gain || !panner) {
+            console.error('Missing nodes for routing:', { worklet, gain, panner });
+            return;
+        }
+
+        console.log('Setting up routing chain:', 'worklet -> gain -> panner -> destination');
+        
+        // Assicurati che ogni nodo sia disconnesso prima di riconnettere
+        worklet.disconnect();
+        gain.nodes.get('worklet').disconnect();
+        panner.nodes.get('worklet').disconnect();
+
+        // Ricrea la catena di connessioni
+        worklet.connect(gain.nodes.get('worklet'));
+        gain.nodes.get('worklet').connect(panner.nodes.get('worklet'));
+        panner.nodes.get('worklet').connect(this.audioContext.destination);
     }
 
     setParameter(name, value) {
         const worklet = this.nodes.get('worklet');
-        if (!worklet) return;
+        const gain = this.nodes.get('gain');
+        const panner = this.nodes.get('panner');
+        if (!worklet || !gain || !panner) return;
 
         switch (name) {
             case 'frequency':
@@ -97,10 +119,10 @@ export default class Oscillator extends AbstractDSPProducer {
                 worklet.parameters.get('waveform').setValueAtTime(value, this.audioContext.currentTime);
                 break;
             case 'mix':
-                this.nodes.get('gain').gain.setValueAtTime(value, this.audioContext.currentTime);
+                gain.setParameter('gain', value);
                 break;
             case 'pan':
-                this.nodes.get('pan').pan.setValueAtTime(value, this.audioContext.currentTime);
+                panner.setParameter('pan', value);
                 break;
         }
     }
@@ -149,10 +171,9 @@ export default class Oscillator extends AbstractDSPProducer {
         worklet.parameters.get('frequency').setValueAtTime(freq, this.audioContext.currentTime);
         worklet.parameters.get('waveform').setValueAtTime(wave, this.audioContext.currentTime);
 
-        // Unmute with fade-in
-        gain.gain.cancelScheduledValues(time);
-        gain.gain.setValueAtTime(0, time);
-        gain.gain.linearRampToValueAtTime(0.2, time + 0.1);
+        // Unmute with fade-in usando il nostro gain
+        gain.setParameter('gain', 0);
+        setTimeout(() => gain.setParameter('gain', 0.2), time * 1000 + 100);
     }
 
     _stopSource(time) {
@@ -160,13 +181,18 @@ export default class Oscillator extends AbstractDSPProducer {
         const gain = this.nodes.get('gain');
         if (!gain) return;
 
-        gain.gain.cancelScheduledValues(time);
-        gain.gain.setValueAtTime(gain.gain.value, time);
-        gain.gain.linearRampToValueAtTime(0, time + 0.01);
+        gain.setParameter('gain', 0);
     }
 
     dispose() {
-        this.nodes.forEach(node => node.disconnect());
+        const gain = this.nodes.get('gain');
+        const panner = this.nodes.get('panner');
+        if (gain) gain.dispose();
+        if (panner) panner.dispose();
+        
+        this.nodes.forEach(node => {
+            if (node !== gain && node !== panner) node.disconnect();
+        });
         this.nodes.clear();
         super.dispose();
     }

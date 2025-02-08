@@ -102,7 +102,8 @@ button:hover {
     min-width: 300px;
     color: white;
     z-index: 100;
-    display: block; /* Aggiungiamo questa proprietà */
+    display: flex;
+    flex-direction: column;
     visibility: visible; /* Aggiungiamo questa proprietà */
     opacity: 1; /* Aggiungiamo questa proprietà */
 }
@@ -153,7 +154,33 @@ button:hover {
 
 .panel-content {
     padding: 15px;
-    overflow: auto; /* Add scrolling for content */
+    overflow: hidden;
+    transition: all 0.3s ease-out;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.controls-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px;
+}
+
+.control-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px;
+}
+
+.panel.collapsed .panel-content {
+    padding: 0 15px;
+    max-height: 0 !important;
+    padding: 0;
+    margin: 0;
+    border: none;
 }
 
 .panel-footer {
@@ -346,3 +373,17 @@ input[type="range"] {
     color: #666;
 }
 
+.oscillator-panel .control-container {
+    margin: 10px;
+    padding: 5px;
+    border-bottom: 1px solid #ddd;
+}
+
+.oscillator-panel .control-container label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.oscillator-panel .control-container input[type="range"] {
+    width: 100%;
+}

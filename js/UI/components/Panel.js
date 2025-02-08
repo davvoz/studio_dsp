@@ -19,14 +19,22 @@ export default class Panel extends AbstractUIComponent {
     }
 
     addControl(control) {
+        // Find or create the controls container
+        let controlsContainer = this.element.querySelector('.controls-container');
+        if (!controlsContainer) {
+            const content = this.element.querySelector('.panel-content');
+            controlsContainer = document.createElement('div');
+            controlsContainer.className = 'controls-container';
+            content.appendChild(controlsContainer);
+        }
+
         const controlContainer = document.createElement('div');
         controlContainer.className = 'control-container';
         
-        // Use createElement instead of create
         const element = control.createElement();
         if (element) {
             controlContainer.appendChild(element);
-            this.element.appendChild(controlContainer);
+            controlsContainer.appendChild(controlContainer);
         }
 
         this.controls.set(control.id, control);
@@ -54,6 +62,13 @@ export default class Panel extends AbstractUIComponent {
         
         // Create content
         this.createContent();
+
+        // Add these styles when creating the content div
+        const content = this.element.querySelector('.panel-content');
+        if (content) {
+            content.style.transition = 'max-height 0.3s ease-out';
+            content.style.maxHeight = 'none';
+        }
 
         // Create footer if specified
         this.createFooter();
@@ -106,19 +121,20 @@ export default class Panel extends AbstractUIComponent {
     createContent() {
         const content = document.createElement('div');
         content.className = 'panel-content';
+        content.style.maxHeight = '1000px'; // valore iniziale alto abbastanza
+
+        // Create a container for all controls
+        const controlsContainer = document.createElement('div');
+        controlsContainer.className = 'controls-container';
+        content.appendChild(controlsContainer);
 
         if (this.options.content) {
             if (typeof this.options.content === 'string') {
-                content.innerHTML = this.options.content;
+                controlsContainer.innerHTML = this.options.content;
             } else if (this.options.content instanceof Node) {
-                content.appendChild(this.options.content);
+                controlsContainer.appendChild(this.options.content);
             }
         }
-
-        // Add all controls
-        this.controls.forEach(control => {
-            content.appendChild(control.create());
-        });
 
         this.element.appendChild(content);
     }
@@ -180,27 +196,20 @@ export default class Panel extends AbstractUIComponent {
         const content = this.element.querySelector('.panel-content');
         const footer = this.element.querySelector('.panel-footer');
         const collapseBtn = this.element.querySelector('.panel-collapse-btn');
-        const originalHeight = this.element.getAttribute('data-original-height');
         
         this.isCollapsed = !this.isCollapsed;
         
         if (this.isCollapsed) {
-            // Store original height before collapsing
-            if (!originalHeight) {
-                this.element.setAttribute('data-original-height', this.element.style.height);
-            }
-            content.style.display = 'none';
+            content.style.maxHeight = '0px';
+            this.element.classList.add('collapsed');
             if (footer) footer.style.display = 'none';
             collapseBtn.innerHTML = '+';
-            this.element.style.height = 'auto';
         } else {
-            content.style.display = 'block';
+            const scrollHeight = content.scrollHeight;
+            content.style.maxHeight = scrollHeight + 'px';
+            this.element.classList.remove('collapsed');
             if (footer) footer.style.display = 'block';
             collapseBtn.innerHTML = '−';
-            // Restore original height
-            if (originalHeight) {
-                this.element.style.height = originalHeight;
-            }
         }
     }
 
