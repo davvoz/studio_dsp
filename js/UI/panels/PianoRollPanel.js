@@ -131,12 +131,20 @@ export default class PianoRollPanel extends Panel {
     handleGridMouseMove(e) {
         if (this.isDragging && this.currentNote) {
             const width = Math.max(this.noteWidth, e.offsetX - this.currentNote.offsetLeft);
-            this.currentNote.style.width = `${width}px`;
+            const gridWidth = Math.ceil(width / this.noteWidth) * this.noteWidth;
             
-            // Aggiorna la durata della nota
+            this.currentNote.style.width = `${gridWidth}px`;
+            
+            // Aggiorna la durata della nota in termini di beats
             const noteId = this.currentNote.dataset.noteId;
-            const duration = width / this.noteWidth / this.gridColumns;
-            this.updateNoteDuration(noteId, duration);
+            const beats = gridWidth / this.noteWidth;
+            this.updateNoteDuration(noteId, beats);
+
+            console.log('Note duration updated:', {
+                width: gridWidth,
+                beats: beats,
+                noteId: noteId
+            });
         }
     }
 
@@ -176,15 +184,18 @@ export default class PianoRollPanel extends Panel {
             id: noteId,
             pitch,
             startTime: gridX / (this.noteWidth * this.gridColumns),
-            duration: 1, // Durata iniziale di un beat
+            duration: 1, // Un beat di durata iniziale
             velocity: 1
         };
         
-        console.log('Adding note:', note);
+        console.log('Adding note:', {
+            ...note,
+            gridX,
+            pixelWidth: this.noteWidth
+        });
+        
         this.pianoRoll.addNote(note);
-
-        // Mostra info nota
-        this.updateNoteInfo(noteElement, pitch);
+        this.updateNoteInfo(noteElement, pitch, note.duration);
     }
 
     updateNoteDuration(noteId, duration) {
@@ -194,14 +205,13 @@ export default class PianoRollPanel extends Panel {
         }
     }
 
-    updateNoteInfo(noteElement, pitch) {
+    updateNoteInfo(noteElement, pitch, duration) {
         const freq = this.midiNoteToFrequency(pitch);
-        noteElement.title = `Note: ${pitch} (${freq.toFixed(1)}Hz)`;
+        noteElement.title = `Note: ${pitch} (${freq.toFixed(1)}Hz)\nDuration: ${duration} beats`;
         
-        // Aggiungi etichetta frequenza
         const label = document.createElement('span');
         label.className = 'note-label';
-        label.textContent = `${freq.toFixed(0)}Hz`;
+        label.textContent = `${freq.toFixed(0)}Hz - ${duration}b`;
         noteElement.appendChild(label);
     }
 
@@ -236,12 +246,25 @@ export default class PianoRollPanel extends Panel {
                     // Usa il nuovo metodo specifico per le note
                     osc.setNoteFrequency(freq, time);
                     
+                    // Assicurati che la durata sia definita e maggiore di zero
+                    const duration = Math.max(0.1, noteInfo.duration || 0.1);
+                    
+                    // Avvia la nota
                     osc.start(time);
-                    if (noteInfo.duration) {
-                        osc.stop(time + noteInfo.duration);
-                    }
+                    
+                    // Programma lo stop della nota
+                    const stopTime = time + duration;
+                    osc.stop(stopTime);
 
-                    this.triggerVisualFeedback(oscillatorPanel);
+                    console.log('Note scheduled:', {
+                        frequency: freq,
+                        startTime: time,
+                        stopTime: stopTime,
+                        duration: duration
+                    });
+
+                    // Feedback visuale con durata corretta
+                    this.triggerVisualFeedback(oscillatorPanel, duration);
                 } catch (error) {
                     console.error('Error triggering oscillator:', error);
                 }
@@ -262,10 +285,11 @@ export default class PianoRollPanel extends Panel {
         return 440 * Math.pow(2, (note - 69) / 12);
     }
 
-    triggerVisualFeedback(oscillatorPanel) {
+    triggerVisualFeedback(oscillatorPanel, duration) {
         const panel = oscillatorPanel.element;
         panel.classList.add('triggered');
-        setTimeout(() => panel.classList.remove('triggered'), 100);
+        // Usa la durata effettiva della nota per il feedback visuale
+        setTimeout(() => panel.classList.remove('triggered'), duration * 1000);
     }
 
     dispose() {

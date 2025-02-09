@@ -55,6 +55,7 @@
     border-radius: 3px;
     opacity: 0.8;
     cursor: pointer;
+    transition: width 0.1s ease-out;
 }
 
 .note:hover {
@@ -105,4 +106,5 @@
 .note.playing {
     background: #0f0;
     box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+    opacity: 1;
 }

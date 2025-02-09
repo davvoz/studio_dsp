@@ -48,23 +48,36 @@ export default class PianoRoll extends AbstractDSPProcessor {
         const currentBeat = Math.floor(this.transport.getCurrentBeat());
         const beatPosition = currentBeat % this.gridResolution;
         
+        // Stop tutte le note attive che dovrebbero essere finite
         this.notes.forEach(note => {
-            // Converti la posizione della nota in beat
+            const noteEndBeat = Math.floor((note.startTime + note.duration) * this.gridResolution);
+            if (noteEndBeat === beatPosition) {
+                this.targets.forEach(target => {
+                    target.trigger(time, { stopAll: true });
+                });
+            }
+        });
+
+        // Avvia le nuove note
+        this.notes.forEach(note => {
             const noteBeatPosition = Math.floor(note.startTime * this.gridResolution);
             
             if (noteBeatPosition === beatPosition) {
-                console.log('Processing note:', {
+                const noteDurationInBeats = note.duration;
+                const durationInSeconds = noteDurationInBeats * beatDuration;
+
+                console.log('Playing note:', {
                     beat: currentBeat,
-                    noteStart: note.startTime,
-                    pitch: note.pitch,
-                    duration: note.duration
+                    start: time,
+                    duration: durationInSeconds,
+                    pitch: note.pitch
                 });
 
                 this.targets.forEach(target => {
                     target.trigger(time, {
                         note: note.pitch,
                         velocity: note.velocity,
-                        duration: note.duration * beatDuration * 4, // Moltiplica per 4 per ottenere la durata corretta
+                        duration: durationInSeconds,
                         startTime: time
                     });
                 });

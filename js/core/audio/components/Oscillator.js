@@ -194,31 +194,36 @@ export default class Oscillator extends AbstractDSPProducer {
     }
 
     start(time = this.audioContext.currentTime) {
-        if (!this.isPlaying) {
-            const worklet = this.nodes.get('worklet');
-            const gain = this.nodes.get('gain');
-            
-            if (!worklet || !gain) {
-                console.error('Required nodes not found');
-                return;
-            }
-
-            // Attiva il suono
-            gain.gain.setValueAtTime(1, time);
-            this.isPlaying = true;
-            console.log('Oscillator started at time:', time);
+        const worklet = this.nodes.get('worklet');
+        const gain = this.nodes.get('gain');
+        
+        if (!worklet || !gain) {
+            console.error('Required nodes not found');
+            return;
         }
+
+        // Resetta eventuali automazioni precedenti
+        gain.gain.cancelScheduledValues(time);
+        
+        // Attiva il suono con un breve fade-in per evitare click
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(1, time + 0.005);
+        
+        this.isPlaying = true;
+        console.log('Oscillator started at time:', time);
     }
 
     stop(time = this.audioContext.currentTime) {
-        if (this.isPlaying) {
-            const gain = this.nodes.get('gain');
-            if (gain) {
-                gain.gain.setValueAtTime(0, time);
-                this.isPlaying = false;
-                console.log('Oscillator stopped at time:', time);
-            }
-        }
+        const gain = this.nodes.get('gain');
+        if (!gain) return;
+
+        // Aggiungi un breve fade-out per evitare click
+        gain.gain.cancelScheduledValues(time);
+        gain.gain.setValueAtTime(gain.gain.value, time);
+        gain.gain.linearRampToValueAtTime(0, time + 0.005);
+        
+        this.isPlaying = false;
+        console.log('Oscillator stopped at time:', time);
     }
 
     setFrequency(freq, time = this.audioContext.currentTime) {

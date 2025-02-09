@@ -75,7 +75,7 @@ export default class TransportPanel extends Panel {
         // Listen for transport events
         this.transport.addListener({
             onTransportEvent: (event, data) => {
-                console.log('TransportPanel: Received event:', event, 'with data:', data); // Debug log
+                //console.log('TransportPanel: Received event:', event, 'with data:', data); // Debug log
                 switch(event) {
                     case 'beat':
                         this.updateBeatDisplay(data);
