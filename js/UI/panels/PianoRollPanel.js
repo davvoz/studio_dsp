@@ -5,7 +5,7 @@ export default class PianoRollPanel extends Panel {
     constructor(audioEngine) {
         super('piano-roll-panel', {
             title: 'Piano Roll',
-            width: '800px',
+            width: '900px',
             height: '400px',
             draggable: true,
             collapsible: true
@@ -20,9 +20,9 @@ export default class PianoRollPanel extends Panel {
         this.octaves = 4;
         this.startOctave = 3;
         this.gridColumns = 16;
-        this.notes = [];
         this.isDragging = false;
         this.currentNote = null;
+        this.addedNoteIds = new Set(); // Track added notes
     }
 
     create() {
@@ -118,9 +118,14 @@ export default class PianoRollPanel extends Panel {
     }
 
     setupEventListeners() {
-        this.grid.addEventListener('mousedown', (e) => this.handleGridMouseDown(e));
+        this.grid.addEventListener('mousedown', (e) => {
+            // Previeni l'aggiunta di note con il tasto destro
+            if (e.button === 2) return; // 2 è il tasto destro
+            this.handleGridMouseDown(e);
+        });
         this.grid.addEventListener('mousemove', (e) => this.handleGridMouseMove(e));
         this.grid.addEventListener('mouseup', () => this.handleGridMouseUp());
+        this.grid.addEventListener('contextmenu', (e) => this.handleContextMenu(e));
     }
 
     handleGridMouseDown(e) {
@@ -153,16 +158,44 @@ export default class PianoRollPanel extends Panel {
         this.currentNote = null;
     }
 
+    handleContextMenu(e) {
+        e.preventDefault();
+        e.stopPropagation(); // Impedisci la propagazione dell'evento
+        if (e.target.classList.contains('note')) {
+            const noteId = Number(e.target.dataset.noteId);
+            console.log('Right click - attempting to remove note:', noteId);
+            
+            const removed = this.pianoRoll.removeNote(noteId);
+            if (removed) {
+                e.target.remove();
+                this.addedNoteIds.delete(noteId); // Rimuovi anche dal tracking
+                console.log('Note removal complete:', {
+                    removedId: noteId,
+                    remainingInDOM: this.grid.querySelectorAll('.note').length,
+                    remainingInPianoRoll: this.pianoRoll.notes.length,
+                    trackedNotes: this.addedNoteIds.size
+                });
+            }
+        }
+    }
+
     addNote(e) {
+        const noteId = Number(Date.now());
+        
+        // Check if we've already added this note
+        if (this.addedNoteIds.has(noteId)) {
+            console.warn('Attempting to add duplicate note:', noteId);
+            return;
+        }
+        
+        // Create note element
         const noteElement = document.createElement('div');
         noteElement.className = 'note';
+        noteElement.dataset.noteId = noteId;
         
         const gridRect = this.grid.getBoundingClientRect();
         const x = e.clientX - gridRect.left;
         const y = e.clientY - gridRect.top;
-        
-        const noteId = Date.now();
-        noteElement.dataset.noteId = noteId;
         
         const gridX = Math.floor(x / this.noteWidth) * this.noteWidth;
         const gridY = Math.floor(y / this.noteHeight) * this.noteHeight;
@@ -196,6 +229,19 @@ export default class PianoRollPanel extends Panel {
         
         this.pianoRoll.addNote(note);
         this.updateNoteInfo(noteElement, pitch, note.duration);
+
+        // Track the new note
+        this.addedNoteIds.add(noteId);
+        
+        console.log('Note state:', {
+            domNotes: this.grid.querySelectorAll('.note').length,
+            trackedNotes: this.addedNoteIds.size,
+            pianoRollNotes: this.pianoRoll.notes.length
+        });
+    }
+
+    removeNote(noteId) {
+        return this.pianoRoll.removeNote(noteId);
     }
 
     updateNoteDuration(noteId, duration) {
@@ -295,5 +341,36 @@ export default class PianoRollPanel extends Panel {
     dispose() {
         this.pianoRoll.dispose();
         super.dispose();
+    }
+
+    // Aggiungi un metodo per visualizzare tutte le note
+    showAllNotes() {
+        console.log('All notes in grid:', Array.from(this.grid.querySelectorAll('.note'))
+            .map(el => ({
+                id: el.dataset.noteId,
+                left: el.style.left,
+                top: el.style.top
+            }))
+        );
+    }
+
+    // Aggiungi questo nuovo metodo per verificare la sincronizzazione
+    verifyNoteSync() {
+        const storedNotes = new Set(this.pianoRoll._notes.keys());
+        const domNotes = new Set(
+            Array.from(this.grid.querySelectorAll('.note'))
+                .map(el => parseInt(el.dataset.noteId))
+        );
+        
+        console.log('Note sync check:', {
+            stored: Array.from(storedNotes),
+            dom: Array.from(domNotes),
+            inSync: this.areSetsEqual(storedNotes, domNotes)
+        });
+    }
+
+    areSetsEqual(a, b) {
+        return a.size === b.size && 
+               [...a].every(value => b.has(value));
     }
 }

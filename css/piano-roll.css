@@ -35,6 +35,8 @@
     position: relative;
     background: #1a1a1a;
     scroll-behavior: smooth;
+    contain: strict;  /* Improve performance */
+    isolation: isolate;  /* Create new stacking context */
 }
 
 .note-grid {
@@ -55,11 +57,44 @@
     border-radius: 3px;
     opacity: 0.8;
     cursor: pointer;
-    transition: width 0.1s ease-out;
+    transition: all 0.2s ease-out;
+    z-index: 1;  /* Ensure proper stacking */
+    min-height: 20px;  /* Match noteHeight */
+    box-sizing: border-box;
+    border: 1px solid rgba(255,255,255,0.2);
 }
 
 .note:hover {
     opacity: 1;
+    transform: scale(1.02);
+    z-index: 2;  /* Bring hovered note to front */
+}
+
+.note:active {
+    opacity: 0.6;
+}
+
+.note.deletable {
+    background: #f44;
+    opacity: 0.8;
+}
+
+.note.deletable:hover {
+    opacity: 1;
+    cursor: not-allowed;
+}
+
+.note.removing {
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+}
+
+/* Add visual feedback for note removal */
+.note.contextmenu {
+    background: #f44;
+    opacity: 0.9;
+    border: 1px solid #fff;
 }
 
 .note-label {
@@ -73,6 +108,7 @@
     border-radius: 2px;
     pointer-events: none;
     white-space: nowrap;
+    z-index: 3;
 }
 
 .note:hover .note-label {
