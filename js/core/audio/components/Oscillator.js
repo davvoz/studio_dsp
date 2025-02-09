@@ -32,10 +32,10 @@ export default class Oscillator extends AbstractDSPProducer {
         await this._setupAudioNode();
         this._initializeParameters();
         
-        // Assicurati che l'oscillatore parta muto
+        // Importante: inizializziamo l'oscillatore come muto
         const gain = this.nodes.get('gain');
         if (gain) {
-            gain.gain.setValueAtTime(0, this.audioContext.currentTime);
+            gain.gain.value = 0;
         }
         
         this.isInitialized = true;
@@ -164,51 +164,27 @@ export default class Oscillator extends AbstractDSPProducer {
     }
 
     start(time = 0) {
-        const worklet = this.nodes.get('worklet');
         const gainNode = this.nodes.get('gain');
-        
-        if (!worklet || !gainNode) {
-            console.warn('Missing nodes in oscillator start');
-            return;
-        }
+        if (!gainNode) return;
 
         time = Math.max(time, this.audioContext.currentTime);
 
-        try {
-            gainNode.gain.cancelScheduledValues(time);
-            gainNode.gain.setValueAtTime(0, time);
-            gainNode.gain.linearRampToValueAtTime(0.2, time + 0.002);
-
-            if (this.frequency) {
-                worklet.parameters.get('frequency').setValueAtTime(this.frequency, time);
-            }
-            
-            this.isPlaying = true;
-            console.log(`Oscillator ${this.id} started at ${time}`);
-        } catch (error) {
-            console.error('Error starting oscillator:', error);
-        }
+        // Cancelliamo tutte le automazioni precedenti
+        gainNode.gain.cancelScheduledValues(time);
+        gainNode.gain.setValueAtTime(0, time);
+        gainNode.gain.linearRampToValueAtTime(0.2, time + 0.002);
     }
 
     stop(time = 0) {
         const gainNode = this.nodes.get('gain');
-        if (!gainNode) {
-            console.warn('Missing gain node in oscillator stop');
-            return;
-        }
+        if (!gainNode) return;
 
         time = Math.max(time, this.audioContext.currentTime);
-        
-        try {
-            gainNode.gain.cancelScheduledValues(time);
-            gainNode.gain.setValueAtTime(gainNode.gain.value, time);
-            gainNode.gain.linearRampToValueAtTime(0, time + 0.002);
-            
-            this.isPlaying = false;
-            console.log(`Oscillator ${this.id} stopped at ${time}`);
-        } catch (error) {
-            console.error('Error stopping oscillator:', error);
-        }
+
+        // Cancelliamo tutte le automazioni precedenti
+        gainNode.gain.cancelScheduledValues(time);
+        gainNode.gain.setValueAtTime(gainNode.gain.value, time);
+        gainNode.gain.linearRampToValueAtTime(0, time + 0.002);
     }
 
     setFrequency(value, time) {

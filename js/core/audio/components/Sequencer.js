@@ -13,45 +13,60 @@ export default class Sequencer extends AbstractDSPProcessor {
     }
 
     setTransport(transport) {
-        if (this.transport) {
-            this.transport.removeListener(this);
+        if (!transport) {
+            console.error('No transport provided to sequencer');
+            return;
+        }
+
+        if (this.transportListener) {
+            this.transport?.removeListener(this.transportListener);
         }
         
         this.transport = transport;
         
-        const transportListener = {
+        // Crea un nuovo listener dedicato
+        this.transportListener = {
             onTransportEvent: (event, data) => {
-                if (event === 'beat' && data) {
-                    const stepIndex = data.index % this.steps;
-                    const isActive = this.activeSteps[stepIndex];
-                    
-                    console.log(`Sequencer beat - step: ${stepIndex}, active: ${isActive}, time: ${data.time}`);
-                    
-                    // Notifica tutti i target
-                    this.targets.forEach(target => {
-                        target.trigger(data.time, {
-                            stepIndex,
-                            active: isActive,
-                            beatTime: data.time
+                console.log('Sequencer received transport event:', event, data);
+                
+                switch(event) {
+                    case 'beat':
+                        if (!data) return;
+                        const stepIndex = data.index % this.steps;
+                        const isActive = this.activeSteps[stepIndex];
+                        
+                        console.log(`Sequencer processing beat ${stepIndex}, active: ${isActive}`);
+                        
+                        this.targets.forEach(target => {
+                            target.trigger(data.time, {
+                                stepIndex,
+                                active: isActive,
+                                beatTime: data.time,
+                                beatDuration: data.beatDuration
+                            });
                         });
-                    });
-                } else if (event === 'stop') {
-                    const stopTime = data.time || this.audioContext.currentTime;
-                    console.log('Sequencer: Stopping all targets at time:', stopTime);
-                    
-                    // Gestisci gli errori per ogni target
-                    this.targets.forEach(target => {
-                        try {
-                            target.trigger(stopTime, { active: false });
-                        } catch (error) {
-                            console.warn('Error stopping target:', error);
-                        }
-                    });
+                        break;
+
+                    case 'start':
+                        console.log('Sequencer received start event');
+                        this.currentStep = 0;
+                        break;
+
+                    case 'stop':
+                        console.log('Sequencer received stop event');
+                        const stopTime = data?.time || this.audioContext.currentTime;
+                        this.targets.forEach(target => {
+                            target.trigger(stopTime, { 
+                                active: false,
+                                stopAll: true 
+                            });
+                        });
+                        break;
                 }
             }
         };
 
-        this.transport.addListener(transportListener);
+        this.transport.addListener(this.transportListener);
         console.log('Sequencer connected to transport');
     }
 

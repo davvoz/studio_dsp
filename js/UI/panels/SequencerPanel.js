@@ -95,28 +95,30 @@ export default class SequencerPanel extends Panel {
                 if (!osc) return;
 
                 try {
-                    // Verifica lo stato dei nodi prima di procedere
-                    const nodeStatus = osc.checkNodes();
-                    if (!nodeStatus.isValid) {
-                        console.warn('Invalid oscillator node structure:', nodeStatus);
+                    // Se riceviamo un evento di stop, fermiamo tutto
+                    if (stepInfo.stopAll) {
+                        osc.stop(time);
                         return;
                     }
 
-                    // Prima stoppa qualsiasi nota in corso
+                    // Ferma sempre la nota precedente
                     osc.stop(time);
 
+                    // Suona solo se lo step è attivo
                     if (stepInfo.active) {
-                        console.log(`Triggering step ${stepInfo.stepIndex} at ${time}`);
                         const freq = this.connectedOscillator.getFrequency();
-                        const duration = this.stepDuration * 0.95;
-                        const stopTime = time + duration;
+                        // Usa la durata del beat se disponibile, altrimenti usa stepDuration
+                        const duration = Math.min(
+                            stepInfo.beatDuration || this.stepDuration,
+                            this.stepDuration
+                        );
                         
-                        // Prima imposta la frequenza
+                        console.log(`Triggering note at ${time} for ${duration}s`);
+                        
                         osc.setFrequency(freq, time);
-                        // Poi avvia la nota
                         osc.start(time);
-                        // Programma lo stop
-                        osc.stop(stopTime);
+                        // Programma lo stop della nota
+                        osc.stop(time + duration);
                         
                         this.triggerVisualFeedback(this.connectedOscillator);
                     }

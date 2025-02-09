@@ -25,9 +25,11 @@ export default class Transport {
     }
 
     _schedule() {
-        const currentTime = this.audioContext.currentTime;
+        if (!this.isPlaying) return;
 
-        // Schedule beats that are within the look-ahead window
+        const currentTime = this.audioContext.currentTime;
+        console.log(`Transport scheduling at ${currentTime}, next beat at ${this.nextBeatTime}`);
+
         while (this.nextBeatTime < currentTime + this.scheduleAheadTime) {
             const beatEvent = {
                 index: this.currentBeat % 16,
@@ -36,19 +38,16 @@ export default class Transport {
                 beatDuration: this.getBeatDuration()
             };
             
-            console.log(`Scheduling beat ${beatEvent.index} at ${beatEvent.time}`);
             this.notifyListeners('beat', beatEvent);
             
-            // Advance time and beat counter
             this.currentBeat++;
             this.nextBeatTime += this.getBeatDuration();
         }
 
-        // Schedule next check using precise timing
-        this.schedulerId = setTimeout(
-            () => this._schedule(),
-            this.schedulerInterval
-        );
+        // Assicurati che lo scheduler continui
+        if (this.isPlaying) {
+            this.schedulerId = setTimeout(() => this._schedule(), this.schedulerInterval);
+        }
     }
 
     start() {
@@ -59,14 +58,21 @@ export default class Transport {
             this.audioContext.resume();
         }
 
+        console.log('Transport starting...');
         this.isPlaying = true;
         this.currentBeat = 0;
         
         const currentTime = this.audioContext.currentTime;
-        this.nextBeatTime = currentTime + 0.1; // Start almost immediately
+        this.nextBeatTime = currentTime + 0.1;
 
-        // Notifica l'avvio a tutti i listener
-        this.notifyListeners('start', { time: this.nextBeatTime });
+        console.log(`Transport: First beat scheduled at ${this.nextBeatTime}`);
+        
+        // Notifica subito il primo beat
+        this.notifyListeners('start', { 
+            time: this.nextBeatTime,
+            beatDuration: this.getBeatDuration(),
+            index: 0
+        });
         
         this._schedule();
     }

@@ -61,3 +61,6 @@
     border: 2px solid #0af !important;
     box-shadow: 0 0 10px rgba(0, 170, 255, 0.5);
 }
+.oscillator-panel{
+    border: 2px solid #333;
+}
