@@ -1,5 +1,4 @@
 import AbstractDSPProducer from '../processes/AbstractDSPProducer.js';
-import Gain from './Gain.js';
 import StereoPanner from './StereoPanner.js';  // Aggiungi import
 
 const WORKLET_URL = 'js/core/audio/worklet/OscillatorProcessor.js'; // rimosso lo slash iniziale
@@ -9,7 +8,8 @@ export default class Oscillator extends AbstractDSPProducer {
         SINE: 0,
         SQUARE: 1,
         SAWTOOTH: 2,
-        TRIANGLE: 3
+        TRIANGLE: 3,
+        WHITE_NOISE: 4
     };
 
     static async loadWorklet(audioContext) {
@@ -31,6 +31,13 @@ export default class Oscillator extends AbstractDSPProducer {
         if (this.isInitialized) return;
         await this._setupAudioNode();
         this._initializeParameters();
+        
+        // Assicurati che l'oscillatore parta muto
+        const gain = this.nodes.get('gain');
+        if (gain) {
+            gain.gain.setValueAtTime(0, this.audioContext.currentTime);
+        }
+        
         this.isInitialized = true;
     }
 
@@ -39,91 +46,54 @@ export default class Oscillator extends AbstractDSPProducer {
             await Oscillator.loadWorklet(this.audioContext);
             
             const worklet = new AudioWorkletNode(this.audioContext, 'oscillator-processor', {
-                outputChannelCount: [1], // Mono output per più pulizia
+                outputChannelCount: [1],  // Mono output
                 numberOfInputs: 0,
                 numberOfOutputs: 1
             });
             
-            const gainNode = new Gain(this.audioContext, `${this.id}_gain`);
-            const pannerNode = new StereoPanner(this.audioContext, `${this.id}_panner`);
+            const gainNode = this.audioContext.createGain();
+            gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
             
-            await gainNode.initialize();
-            await pannerNode.initialize();
+
             
-            const nodes = {
-                worklet,
-                gain: gainNode,
-                panner: pannerNode
-            };
+            this.nodes.set('worklet', worklet);
+            this.nodes.set('gain', gainNode);
 
-            // Imposta il gain iniziale basso
-            gainNode.setParameter('gain', 0.2);
+            // Routing corretto usando connect
+            worklet.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
             
-            Object.entries(nodes).forEach(([key, node]) => {
-                this.nodes.set(key, node);
-            });
-
-            this._setupRouting();
-            
-            // Verifica connessioni
-            console.log('Audio routing:', {
-                workletParams: [...worklet.parameters.keys()],
-                context: this.audioContext.state
-            });
-
-            // Se il context è suspended, avvialo
-            if (this.audioContext.state === 'suspended') {
-                await this.audioContext.resume();
-            }
-
+            console.log('Audio routing complete:', this.id);
         } catch (error) {
             console.error('Error setting up oscillator:', error);
             throw error;
         }
     }
 
-    _setupRouting() {
-        const worklet = this.nodes.get('worklet');
-        const gain = this.nodes.get('gain');
-        const panner = this.nodes.get('panner');
-
-        if (!worklet || !gain || !panner) {
-            console.error('Missing nodes for routing:', { worklet, gain, panner });
-            return;
-        }
-
-        console.log('Setting up routing chain:', 'worklet -> gain -> panner -> destination');
-        
-        // Assicurati che ogni nodo sia disconnesso prima di riconnettere
-        worklet.disconnect();
-        gain.nodes.get('worklet').disconnect();
-        panner.nodes.get('worklet').disconnect();
-
-        // Ricrea la catena di connessioni
-        worklet.connect(gain.nodes.get('worklet'));
-        gain.nodes.get('worklet').connect(panner.nodes.get('worklet'));
-        panner.nodes.get('worklet').connect(this.audioContext.destination);
-    }
-
     setParameter(name, value) {
         const worklet = this.nodes.get('worklet');
-        const gain = this.nodes.get('gain');
-        const panner = this.nodes.get('panner');
-        if (!worklet || !gain || !panner) return;
+        const gainNode = this.nodes.get('gain');
+        
+        if (!worklet || !gainNode ) return;
 
-        switch (name) {
-            case 'frequency':
-                worklet.parameters.get('frequency').setValueAtTime(value, this.audioContext.currentTime);
-                break;
-            case 'waveform':
-                worklet.parameters.get('waveform').setValueAtTime(value, this.audioContext.currentTime);
-                break;
-            case 'mix':
-                gain.setParameter('gain', value);
-                break;
-            case 'pan':
-                panner.setParameter('pan', value);
-                break;
+        try {
+            switch (name) {
+                case 'frequency':
+                    this.frequency = value;
+                    worklet.parameters.get('frequency').setValueAtTime(value, this.audioContext.currentTime);
+                    break;
+                case 'waveform':
+                    worklet.parameters.get('waveform').setValueAtTime(value, this.audioContext.currentTime);
+                    break;
+                case 'mix':
+                    gainNode.gain.setValueAtTime(value, this.audioContext.currentTime);
+                    break;
+                 case 'pwm':
+                    worklet.parameters.get('pwm').setValueAtTime(value, this.audioContext.currentTime);
+                    break;
+            }
+        } catch (error) {
+            console.error(`Error setting parameter ${name}:`, error);
         }
     }
 
@@ -132,7 +102,6 @@ export default class Oscillator extends AbstractDSPProducer {
             ['frequency', 440, 20, 20000],
             ['detune', 0, -1200, 1200],
             ['waveform', Oscillator.WAVEFORMS.SINE],
-            ['pan', 0, -1, 1],
             ['mix', 1, 0, 1]
         ];
 
@@ -172,8 +141,8 @@ export default class Oscillator extends AbstractDSPProducer {
         worklet.parameters.get('waveform').setValueAtTime(wave, this.audioContext.currentTime);
 
         // Unmute with fade-in usando il nostro gain
-        gain.setParameter('gain', 0);
-        setTimeout(() => gain.setParameter('gain', 0.2), time * 1000 + 100);
+        gain.gain.setValueAtTime(0, this.audioContext.currentTime);
+        setTimeout(() => gain.gain.setValueAtTime(0.2, this.audioContext.currentTime + time), time * 1000 + 100);
     }
 
     _stopSource(time) {
@@ -181,20 +150,92 @@ export default class Oscillator extends AbstractDSPProducer {
         const gain = this.nodes.get('gain');
         if (!gain) return;
 
-        gain.setParameter('gain', 0);
+        gain.gain.setValueAtTime(0, this.audioContext.currentTime);
     }
 
-    dispose() {
-        const gain = this.nodes.get('gain');
-        const panner = this.nodes.get('panner');
-        if (gain) gain.dispose();
-        if (panner) panner.dispose();
-        
+    dispose() {      
         this.nodes.forEach(node => {
-            if (node !== gain && node !== panner) node.disconnect();
+            if (node && typeof node.disconnect === 'function') {
+                node.disconnect();
+            }
         });
         this.nodes.clear();
         super.dispose();
+    }
+
+    start(time = 0) {
+        const worklet = this.nodes.get('worklet');
+        const gainNode = this.nodes.get('gain');
+        
+        if (!worklet || !gainNode) {
+            console.warn('Missing nodes in oscillator start');
+            return;
+        }
+
+        time = Math.max(time, this.audioContext.currentTime);
+
+        try {
+            gainNode.gain.cancelScheduledValues(time);
+            gainNode.gain.setValueAtTime(0, time);
+            gainNode.gain.linearRampToValueAtTime(0.2, time + 0.002);
+
+            if (this.frequency) {
+                worklet.parameters.get('frequency').setValueAtTime(this.frequency, time);
+            }
+            
+            this.isPlaying = true;
+            console.log(`Oscillator ${this.id} started at ${time}`);
+        } catch (error) {
+            console.error('Error starting oscillator:', error);
+        }
+    }
+
+    stop(time = 0) {
+        const gainNode = this.nodes.get('gain');
+        if (!gainNode) {
+            console.warn('Missing gain node in oscillator stop');
+            return;
+        }
+
+        time = Math.max(time, this.audioContext.currentTime);
+        
+        try {
+            gainNode.gain.cancelScheduledValues(time);
+            gainNode.gain.setValueAtTime(gainNode.gain.value, time);
+            gainNode.gain.linearRampToValueAtTime(0, time + 0.002);
+            
+            this.isPlaying = false;
+            console.log(`Oscillator ${this.id} stopped at ${time}`);
+        } catch (error) {
+            console.error('Error stopping oscillator:', error);
+        }
+    }
+
+    setFrequency(value, time) {
+        this.frequency = value;
+        const worklet = this.nodes.get('worklet');
+        if (worklet) {
+            // Previeni click utilizzando una breve rampa
+            const param = worklet.parameters.get('frequency');
+            param.cancelScheduledValues(time);
+            param.setValueAtTime(param.value, time);
+            param.linearRampToValueAtTime(value, time + 0.005);
+            console.log('Set frequency to', value, 'at time', time);
+        }
+    }
+
+    // Aggiungi un metodo di sicurezza per verificare lo stato
+    checkNodes() {
+        const worklet = this.nodes.get('worklet');
+        const gain = this.nodes.get('gain');
+        const panner = this.nodes.get('panner');
+
+        return {
+            hasWorklet: !!worklet,
+            hasGain: !!gain,
+            hasPanner: !!panner,
+            isValid: !!(worklet && gain && panner)
+        };
     }
 }
 

@@ -1,0 +1,63 @@
+.sequencer-controls {
+    padding: 10px;
+}
+
+.step-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 4px;
+}
+
+.step-button {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #666;
+    background: #333;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.step-button.active {
+    background: #0af;
+}
+
+.step-button.current {
+    border-color: #fff;
+    box-shadow: 0 0 5px rgba(255,255,255,0.5);
+}
+
+.step-button.active.current {
+    background: #0ff;
+}
+.duration-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 5px;
+}
+
+.duration-control input {
+    width: 80px;
+    background: #333;
+    border: 1px solid #666;
+    color: #fff;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.connection-label {
+    margin-top: 10px;
+    padding: 5px 10px;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #0af;
+    font-size: 12px;
+    text-align: center;
+}
+
+.oscillator-panel.triggered {
+    border: 2px solid #0af !important;
+    box-shadow: 0 0 10px rgba(0, 170, 255, 0.5);
+}

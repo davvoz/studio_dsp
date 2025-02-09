@@ -23,18 +23,33 @@ export default class OscillatorPanel extends Panel {
         
         this.audioEngine = audioEngine;
         this.midiManager = midiManager;
-        this.oscillator = new Oscillator(this.audioEngine.audioContext, 'osc1');
+        this.oscillator = new Oscillator(this.audioEngine.audioContext, `osc_${Date.now()}`);
+
         this.isPlaying = false;
         this.controls = new Map();
+        this.frequency = 440; // Add this line to store current frequency
     }
 
     create() {
         super.create();
         
         this.element.classList.add('oscillator-panel');
+        const content = this.element.querySelector('.panel-content');
+        
+        // Add visual divider after title
+        const divider = document.createElement('div');
+        divider.className = 'panel-divider';
+        content.appendChild(divider);
+        
         this.createWaveformSelector();
-        this.createPlayControl();
         this.audioEngine.registerComponent(this.oscillator);
+
+        // Aggiungi indicatore connessione
+        this.connectionIndicator = document.createElement('div');
+        this.connectionIndicator.className = 'connection-indicator';
+        this.connectionIndicator.innerHTML = '⚡ Connected to Sequencer';
+        this.connectionIndicator.style.display = 'none';
+        content.appendChild(this.connectionIndicator);
     }
 
     setupControls() {
@@ -47,40 +62,10 @@ export default class OscillatorPanel extends Panel {
                 initialValue: 440,
                 label: 'Frequency (Hz)',
                 onChange: (value) => {
-                    this.oscillator.setParameter('frequency', parseFloat(value));
-                }
-            },
-            {
-                id: `${this.id}_detune`,
-                min: -1200,
-                max: 1200,
-                step: 1,
-                initialValue: 0,
-                label: 'Detune (cents)',
-                midiCC: 94,
-                onChange: (value) => this.oscillator.setParameter('detune', parseFloat(value))
-            },
-            {
-                id: `${this.id}_pan`,
-                min: -1,
-                max: 1,
-                step: 0.01,  // Rendiamo il passo più fine
-                initialValue: 0,
-                label: 'Pan L < > R',  // Etichetta più chiara
-                midiCC: 10,
-                onChange: (value) => {
-                    const panValue = parseFloat(value);
-                    console.log('Pan value:', panValue); // Debug
-                    this.oscillator.setParameter('pan', panValue);
-                    
-                    // Aggiorna l'etichetta con la posizione
-                    const label = this.element.querySelector(`label[for="${this.id}_pan"]`);
-                    if (label) {
-                        const position = panValue < 0 ? `L ${Math.abs(panValue*100).toFixed(0)}%` :
-                                       panValue > 0 ? `R ${Math.abs(panValue*100).toFixed(0)}%` : 
-                                       'C';
-                        label.textContent = `Pan: ${position}`;
-                    }
+                    const freq = parseFloat(value);
+                    this.frequency = freq; // Store current frequency
+                    this.oscillator.setParameter('frequency', freq);
+                    // Non avviare l'oscillatore qui
                 }
             },
             {
@@ -88,7 +73,7 @@ export default class OscillatorPanel extends Panel {
                 min: 0,
                 max: 1,
                 step: 0.01,
-                initialValue: 1,
+                initialValue: 0, // Parti con volume a zero
                 label: 'Mix',
                 midiCC: 8,
                 onChange: (value) => this.oscillator.setParameter('mix', parseFloat(value))
@@ -99,9 +84,8 @@ export default class OscillatorPanel extends Panel {
             const control = new MIDIMappableSlider({
                 ...config,
                 midiManager: this.midiManager,
-                className: config.id.includes('pan') ? 'pan-slider' : ''  // Classe speciale per lo slider del pan
+                className: 'oscillator-control'
             });
-            
             // Aggiungi label con ID per referenza
             const label = document.createElement('label');
             label.setAttribute('for', config.id);
@@ -113,21 +97,24 @@ export default class OscillatorPanel extends Panel {
             // Trigger onChange per impostare il valore iniziale
             config.onChange(config.initialValue);
         });
+
+        // Aggiungi listener per mostrare/nascondere il controllo PWM
+        const waveformSelect = this.element.querySelector('select');
+        if (waveformSelect) {
+            waveformSelect.addEventListener('change', (e) => {
+                const isPWM = parseInt(e.target.value) === Oscillator.WAVEFORMS.PWM;
+                const pwmControl = this.controls.get(`${this.id}_pwm`);
+                if (pwmControl) {
+                    pwmControl.element.parentElement.style.display = isPWM ? 'block' : 'none';
+                }
+            });
+        }
     }
 
     addControl(control) {
         // Find or create the controls container
         let controlsContainer = this.element.querySelector('.controls-container');
-        if (!controlsContainer) {
-            const content = this.element.querySelector('.panel-content');
-            if (!content) {
-                console.error('Panel content not found');
-                return;
-            }
-            controlsContainer = document.createElement('div');
-            controlsContainer.className = 'controls-container';
-            content.appendChild(controlsContainer);
-        }
+        
 
         const controlContainer = document.createElement('div');
         controlContainer.className = 'control-container';
@@ -155,15 +142,17 @@ export default class OscillatorPanel extends Panel {
     }
 
     createWaveformSelector() {
-        const waveformDiv = document.createElement('div');
-        waveformDiv.className = 'control-group';
+        const waveformSection = document.createElement('div');
+        waveformSection.className = 'waveform-section';
+        
         const waveformSelect = document.createElement('select');
         
         const waveforms = {
-            'Sine': Oscillator.WAVEFORMS.SINE,
-            'Square': Oscillator.WAVEFORMS.SQUARE,
-            'Sawtooth': Oscillator.WAVEFORMS.SAWTOOTH,
-            'Triangle': Oscillator.WAVEFORMS.TRIANGLE
+            'Sine Wave': Oscillator.WAVEFORMS.SINE,
+            'Square Wave': Oscillator.WAVEFORMS.SQUARE,
+            'Sawtooth Wave': Oscillator.WAVEFORMS.SAWTOOTH,
+            'Triangle Wave': Oscillator.WAVEFORMS.TRIANGLE,
+            'White Noise': Oscillator.WAVEFORMS.WHITE_NOISE
         };
 
         Object.entries(waveforms).forEach(([key, value]) => {
@@ -177,68 +166,18 @@ export default class OscillatorPanel extends Panel {
             this.oscillator.setParameter('waveform', parseInt(e.target.value));
         });
 
-        this.addLabel(waveformDiv, 'Waveform', waveformSelect);
-        
-        // Instead of adding directly to panel element, use addControl
-        const controlContainer = document.createElement('div');
-        controlContainer.className = 'control-container';
-        controlContainer.appendChild(waveformDiv);
+        this.addLabel(waveformSection, 'Waveform Type', waveformSelect);
         
         let controlsContainer = this.element.querySelector('.controls-container');
-        if (!controlsContainer) {
-            const content = this.element.querySelector('.panel-content');
-            controlsContainer = document.createElement('div');
-            controlsContainer.className = 'controls-container';
-            content.appendChild(controlsContainer);
-        }
+       
         
-        controlsContainer.appendChild(controlContainer);
+        controlsContainer.insertBefore(waveformSection, controlsContainer.firstChild);
     }
 
-    createPlayControl() {
-        const playButton = document.createElement('button');
-        playButton.className = 'play-button';
-        playButton.textContent = 'Play';
-        
-        // Create a container for the play button
-        const buttonContainer = document.createElement('div');
-        buttonContainer.className = 'control-container';
-        buttonContainer.appendChild(playButton);
-        
-        // Add to controls container
-        let controlsContainer = this.element.querySelector('.controls-container');
-        if (!controlsContainer) {
-            const content = this.element.querySelector('.panel-content');
-            controlsContainer = document.createElement('div');
-            controlsContainer.className = 'controls-container';
-            content.appendChild(controlsContainer);
+    setConnected(isConnected) {
+        if (this.connectionIndicator) {
+            this.connectionIndicator.style.display = isConnected ? 'block' : 'none';
         }
-        
-        controlsContainer.appendChild(buttonContainer);
-        
-        // Rest of the play button logic
-        playButton.addEventListener('click', async () => {
-            try {
-                // Resume the audio context directly
-                if (this.audioEngine.audioContext.state === 'suspended') {
-                    await this.audioEngine.audioContext.resume();
-                }
-                
-                if (this.isPlaying) {
-                    console.log('Stopping oscillator');
-                    this.oscillator.stop();
-                    playButton.textContent = 'Play';
-                } else {
-                    console.log('Starting oscillator');
-                    this.oscillator.start();
-                    playButton.textContent = 'Stop';
-                }
-                this.isPlaying = !this.isPlaying;
-                console.log('Oscillator playing state:', this.isPlaying);
-            } catch (err) {
-                console.error('Error toggling oscillator:', err);
-            }
-        });
     }
 
     addLabel(container, text, element) {
@@ -254,4 +193,14 @@ export default class OscillatorPanel extends Panel {
         this.audioEngine.unregisterComponent(this.oscillator.id);
         super.dispose();
     }
+
+    getFrequency() {
+        return this.frequency || 440;
+    }
+
+    getOscillator() {
+        return this.oscillator;
+    }
 }
+
+

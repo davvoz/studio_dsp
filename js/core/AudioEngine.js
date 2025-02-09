@@ -1,10 +1,10 @@
 import Observable from './Observable.js';
 
-class AudioEngine {
+export default class AudioEngine {
     constructor() {
         this.audioContext = null;
         this.components = new Map();
-        this.state = new Observable('stopped');
+        this.transport = null;
         this.masterGain = null;
     }
 
@@ -13,13 +13,10 @@ class AudioEngine {
             this.audioContext = new AudioContext();
             this.masterGain = this.audioContext.createGain();
             this.masterGain.connect(this.audioContext.destination);
-            
-            // Set initial master volume
             this.masterGain.gain.setValueAtTime(0.8, this.audioContext.currentTime);
             
+            // Transport verrà creato da TransportPanel
             await this.audioContext.resume();
-            this.state.value = 'running';
-            
             return true;
         } catch (error) {
             console.error('Failed to initialize AudioEngine:', error);
@@ -28,30 +25,30 @@ class AudioEngine {
     }
 
     registerComponent(component) {
-        if (!this.audioContext) {
-            throw new Error('AudioEngine not initialized');
-        }
+        if (!component || !component.id) return;
+        console.log(`Registering component: ${component.id}`);
         this.components.set(component.id, component);
-        component.initialize(this.audioContext);
+        
+        // Non inizializzare automaticamente i componenti audio
+        // component.initialize(this.audioContext);
     }
 
     unregisterComponent(componentId) {
         const component = this.components.get(componentId);
         if (component) {
-            component.dispose();
+            console.log(`Unregistering component: ${componentId}`);
+            if (typeof component.dispose === 'function') {
+                component.dispose();
+            }
             this.components.delete(componentId);
         }
     }
 
-    suspend() {
-        this.audioContext.suspend();
-        this.state.value = 'suspended';
+    getTransport() {
+        return this.transport;
     }
 
-    resume() {
-        this.audioContext.resume();
-        this.state.value = 'running';
+    setTransport(transport) {
+        this.transport = transport;
     }
 }
-
-export default AudioEngine;

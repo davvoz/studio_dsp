@@ -12,7 +12,7 @@ class OscillatorProcessor extends AudioWorkletProcessor {
                 name: 'waveform',
                 defaultValue: 0,
                 minValue: 0,
-                maxValue: 3,
+                maxValue: 4,  // Modificato per includere solo fino al noise
                 automationRate: 'k-rate'
             }
         ];
@@ -21,23 +21,19 @@ class OscillatorProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
         this.phase = 0;
+        this.noiseBuffer = new Float32Array(2);  // Per il noise
     }
 
     process(inputs, outputs, parameters) {
         const output = outputs[0];
         const frequency = parameters.frequency[0];
-        
-        // Incremento di fase semplificato
         const phaseStep = (frequency / sampleRate) * (2 * Math.PI);
-
-        // Prendiamo il valore del waveform una sola volta per buffer
         const waveform = Math.floor(parameters.waveform[0]);
 
         for (let channel = 0; channel < output.length; ++channel) {
             const outputChannel = output[channel];
             
             for (let i = 0; i < outputChannel.length; ++i) {
-                // Generazione base delle forme d'onda
                 switch (waveform) {
                     case 0: // Sine
                         outputChannel[i] = Math.sin(this.phase);
@@ -55,10 +51,16 @@ class OscillatorProcessor extends AudioWorkletProcessor {
                         const saw = -1 + (this.phase % (2 * Math.PI)) / Math.PI;
                         outputChannel[i] = 0.5 * (Math.abs(saw) * 2 - 1);
                         break;
+                    
+                    case 4: // White Noise
+                        outputChannel[i] = Math.random() * 2 - 1;
+                        break;
                 }
 
-                // Avanzamento fase più preciso
                 this.phase += phaseStep;
+                if (this.phase >= 2 * Math.PI) {
+                    this.phase -= 2 * Math.PI;
+                }
             }
         }
 
