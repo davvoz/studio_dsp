@@ -3,21 +3,21 @@ import MIDIManager from './core/midi/MIDIManager.js';
 import MIDIPanel from './UI/panels/MIDIPanel.js';
 import OscillatorPanel from './UI/panels/OscillatorPanel.js';
 import AudioEngine from './core/audio/AudioEngine.js';
-import SequencerPanel from './UI/panels/SequencerPanel.js';
+import PianoRollPanel from './UI/panels/PianoRollPanel.js';
 import TransportPanel from './UI/panels/TransportPanel.js';
-import MetronomePanel from './UI/panels/MetronomePanel.js';  // Add this import
+import MetronomePanel from './UI/panels/MetronomePanel.js';
 
 class StudioDSPDemo {
     constructor() {
         this.uiManager = new UIManager();
         this.midiManager = new MIDIManager();
-        this.audioEngine = new AudioEngine();  // Add AudioEngine instance
+        this.audioEngine = new AudioEngine();
         this.controlsRegistry = new Map();
     }
 
     async initialize() {
         // Initialize Audio Engine
-        await this.audioEngine.initialize();  // Add this line
+        await this.audioEngine.initialize();
         
         // Initialize MIDI
         const midiInitialized = await this.midiManager.initialize();
@@ -33,25 +33,25 @@ class StudioDSPDemo {
         // Add metronome panel
         const metronomePanel = new MetronomePanel(this.audioEngine);
         this.uiManager.addComponent(metronomePanel);
-        metronomePanel.setPosition(360, 20);  // Position next to transport
+        metronomePanel.setPosition(360, 20);
 
         // Adjust other panels' positions
         const midiPanel = new MIDIPanel(this.midiManager);
         this.uiManager.addComponent(midiPanel);
         midiPanel.initialize();
-        midiPanel.setPosition(10, 200);  // Moved down
+        midiPanel.setPosition(10, 200);
 
         const oscillatorPanel = new OscillatorPanel(this.audioEngine, this.midiManager);
         this.uiManager.addComponent(oscillatorPanel);
         oscillatorPanel.setupControls();
-        oscillatorPanel.setPosition(400, 500);  // Moved down
+        oscillatorPanel.setPosition(400, 500);
 
-        const sequencerPanel = new SequencerPanel(this.audioEngine);
-        this.uiManager.addComponent(sequencerPanel);
-        sequencerPanel.setPosition(10, 380);  // Moved down
+        const pianoRollPanel = new PianoRollPanel(this.audioEngine);
+        this.uiManager.addComponent(pianoRollPanel);
+        pianoRollPanel.setPosition(10, 380);
 
-        // Collega il sequencer all'oscillatore
-        sequencerPanel.connectToOscillator(oscillatorPanel);
+        // Connect piano roll to oscillator
+        pianoRollPanel.connectToOscillator(oscillatorPanel);
     }
 }
 

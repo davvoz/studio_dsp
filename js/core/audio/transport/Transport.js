@@ -28,7 +28,6 @@ export default class Transport {
         if (!this.isPlaying) return;
 
         const currentTime = this.audioContext.currentTime;
-        console.log(`Transport scheduling at ${currentTime}, next beat at ${this.nextBeatTime}`);
 
         while (this.nextBeatTime < currentTime + this.scheduleAheadTime) {
             const beatEvent = {

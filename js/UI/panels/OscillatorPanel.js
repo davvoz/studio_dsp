@@ -43,71 +43,70 @@ export default class OscillatorPanel extends Panel {
         
         this.createWaveformSelector();
         this.audioEngine.registerComponent(this.oscillator);
-
-        // Aggiungi indicatore connessione
-        this.connectionIndicator = document.createElement('div');
-        this.connectionIndicator.className = 'connection-indicator';
-        this.connectionIndicator.innerHTML = '⚡ Connected to Sequencer';
-        this.connectionIndicator.style.display = 'none';
-        content.appendChild(this.connectionIndicator);
     }
 
     setupControls() {
         const sliders = [
             {
-                id: `${this.id}_frequency`,  // Prefisso con l'ID del pannello
-                min: 20,
+                id: `${this.id}_frequency_mod`,  // Rinominato per chiarezza
+                min: 0,  // Range modificato per essere relativo
                 max: 2000,
                 step: 0.1,
-                initialValue: 440,
-                label: 'Frequency (Hz)',
+                initialValue: 0,  // Partiamo da 0 (nessuna modifica)
+                label: 'Frequency Mod (Hz)',
                 onChange: (value) => {
-                    const freq = parseFloat(value);
-                    this.frequency = freq; // Store current frequency
-                    this.oscillator.setParameter('frequency', freq);
-                    // Non avviare l'oscillatore qui
+                    const baseFreq = this.oscillator.getCurrentBaseFrequency();
+                    const modValue = parseFloat(value);
+                    const newFreq = baseFreq + modValue;
+                    console.log('Modulating frequency:', {base: baseFreq, mod: modValue, new: newFreq});
+                    this.oscillator.setParameter('frequency', newFreq);
                 }
             },
             {
-                id: `${this.id}_mix`,
+                id: `${this.id}_mix_mod`,
                 min: 0,
                 max: 1,
                 step: 0.01,
-                initialValue: 0, // Parti con volume a zero
-                label: 'Mix',
+                initialValue: 0.5,
+                label: 'Mix Mod',
                 midiCC: 8,
-                onChange: (value) => this.oscillator.setParameter('mix', parseFloat(value))
+                onChange: (value) => {
+                    const mix = parseFloat(value);
+                    this.oscillator.setParameter('mix', mix);
+                }
             }
         ];
 
+        // Crea i controlli
         sliders.forEach(config => {
             const control = new MIDIMappableSlider({
                 ...config,
                 midiManager: this.midiManager,
                 className: 'oscillator-control'
             });
-            // Aggiungi label con ID per referenza
-            const label = document.createElement('label');
-            label.setAttribute('for', config.id);
-            label.textContent = config.label;
             
             this.addControl(control);
             control.setValue(config.initialValue);
-            
-            // Trigger onChange per impostare il valore iniziale
-            config.onChange(config.initialValue);
+            this.controls.set(config.id, control);
         });
+    }
 
-        // Aggiungi listener per mostrare/nascondere il controllo PWM
-        const waveformSelect = this.element.querySelector('select');
-        if (waveformSelect) {
-            waveformSelect.addEventListener('change', (e) => {
-                const isPWM = parseInt(e.target.value) === Oscillator.WAVEFORMS.PWM;
-                const pwmControl = this.controls.get(`${this.id}_pwm`);
-                if (pwmControl) {
-                    pwmControl.element.parentElement.style.display = isPWM ? 'block' : 'none';
-                }
-            });
+    updateControlsFromOscillator() {
+        const freqControl = this.controls.get(`${this.id}_frequency`);
+        const mixControl = this.controls.get(`${this.id}_mix`);
+
+        if (freqControl && this.oscillator) {
+            const currentFreq = this.oscillator.getCurrentFrequency();
+            if (currentFreq !== this.frequency) {
+                freqControl.setValue(currentFreq, true); // true = silent update
+            }
+        }
+
+        if (mixControl && this.oscillator) {
+            const currentMix = this.oscillator.getCurrentMix();
+            if (currentMix !== mixControl.getValue()) {
+                mixControl.setValue(currentMix, true);
+            }
         }
     }
 
@@ -189,7 +188,9 @@ export default class OscillatorPanel extends Panel {
     }
 
     dispose() {
-        // Rimuovi la chiamata a unregisterControl
+        if (this.updateControlsInterval) {
+            clearInterval(this.updateControlsInterval);
+        }
         this.audioEngine.unregisterComponent(this.oscillator.id);
         super.dispose();
     }

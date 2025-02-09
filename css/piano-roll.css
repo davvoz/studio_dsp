@@ -1,0 +1,108 @@
+.piano-roll-panel .panel-content {
+    overflow: hidden;
+}
+
+.piano-keys {
+    width: 60px;
+    border-right: 1px solid #444;
+    background: #2a2a2a;
+    overflow-y: hidden;
+}
+
+.piano-key {
+    height: 20px;
+    border-bottom: 1px solid #444;
+    display: flex;
+    align-items: center;
+    padding-left: 5px;
+    font-size: 11px;
+    user-select: none;
+}
+
+.piano-key.white {
+    background: #fff;
+    color: #000;
+}
+
+.piano-key.black {
+    background: #000;
+    color: #fff;
+}
+
+.note-grid-container {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    background: #1a1a1a;
+    scroll-behavior: smooth;
+}
+
+.note-grid {
+    position: relative;
+    height: calc(20px * 48); /* 4 ottave * 12 note */
+    display: grid;
+    grid-template-columns: repeat(16, 50px);
+}
+
+.grid-line {
+    border-right: 1px solid #333;
+    height: 100%;
+}
+
+.note {
+    position: absolute;
+    background: #0af;
+    border-radius: 3px;
+    opacity: 0.8;
+    cursor: pointer;
+}
+
+.note:hover {
+    opacity: 1;
+}
+
+.note-label {
+    position: absolute;
+    bottom: -15px;
+    left: 0;
+    font-size: 9px;
+    color: #fff;
+    background: rgba(0,0,0,0.7);
+    padding: 2px 4px;
+    border-radius: 2px;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.note:hover .note-label {
+    opacity: 1;
+    z-index: 1000;
+}
+
+.playhead {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 100%;
+    background-color: #ff5500;
+    pointer-events: none;
+    z-index: 1000;
+    box-shadow: 0 0 5px rgba(255, 85, 0, 0.5);
+    transition: left 0.1s linear;
+}
+
+.connection-indicator {
+    margin-top: 10px;
+    padding: 5px;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #0af;
+    text-align: center;
+    font-size: 12px;
+}
+
+.note.playing {
+    background: #0f0;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}

@@ -24,6 +24,8 @@ export default class Oscillator extends AbstractDSPProducer {
         this.id = id;
         this.audioContext = audioContext;
         this.nodes = new Map();
+        this.baseFrequency = 440; // Frequenza base (quella del piano roll)
+        this.frequencyMod = 0;    // Modificatore di frequenza
         this.initialize();
     }
 
@@ -70,31 +72,59 @@ export default class Oscillator extends AbstractDSPProducer {
         }
     }
 
-    setParameter(name, value) {
+    setParameter(name, value, time = this.audioContext.currentTime) {
         const worklet = this.nodes.get('worklet');
-        const gainNode = this.nodes.get('gain');
-        
-        if (!worklet || !gainNode ) return;
+        const gain = this.nodes.get('gain');
 
-        try {
-            switch (name) {
-                case 'frequency':
-                    this.frequency = value;
-                    worklet.parameters.get('frequency').setValueAtTime(value, this.audioContext.currentTime);
-                    break;
-                case 'waveform':
-                    worklet.parameters.get('waveform').setValueAtTime(value, this.audioContext.currentTime);
-                    break;
-                case 'mix':
-                    gainNode.gain.setValueAtTime(value, this.audioContext.currentTime);
-                    break;
-                 case 'pwm':
-                    worklet.parameters.get('pwm').setValueAtTime(value, this.audioContext.currentTime);
-                    break;
-            }
-        } catch (error) {
-            console.error(`Error setting parameter ${name}:`, error);
+        if (!worklet || !gain) {
+            console.error('Required nodes not found for parameter:', name);
+            return;
         }
+
+        switch(name) {
+            case 'frequency':
+                if (worklet.parameters.has('frequency')) {
+                    // Mantieni traccia della frequenza base quando viene dal piano roll
+                    if (this.isNoteFrequency) {
+                        this.baseFrequency = value;
+                        value += this.frequencyMod;
+                    } else {
+                        // Se viene dai controlli, aggiorna solo il modificatore
+                        this.frequencyMod = value - this.baseFrequency;
+                    }
+                    worklet.parameters.get('frequency').setValueAtTime(value, time);
+                    console.log('Set frequency:', {
+                        base: this.baseFrequency,
+                        mod: this.frequencyMod,
+                        final: value
+                    });
+                }
+                break;
+            case 'waveform':
+                if (worklet.parameters.has('waveform')) {
+                    worklet.parameters.get('waveform').setValueAtTime(value, time);
+                    console.log('Set waveform:', value, 'at time:', time);
+                }
+                break;
+            case 'mix':
+                gain.gain.setValueAtTime(value, time);
+                console.log('Set gain:', value, 'at time:', time);
+                break;
+            default:
+                console.warn('Unknown parameter:', name);
+        }
+    }
+
+    getCurrentBaseFrequency() {
+        return this.baseFrequency;
+    }
+
+    getCurrentFrequency() {
+        return this.baseFrequency + this.frequencyMod;
+    }
+
+    getCurrentMix() {
+        return this.nodes.get('gain')?.gain.value || 0;
     }
 
     _initializeParameters() {
@@ -163,28 +193,40 @@ export default class Oscillator extends AbstractDSPProducer {
         super.dispose();
     }
 
-    start(time = 0) {
-        const gainNode = this.nodes.get('gain');
-        if (!gainNode) return;
+    start(time = this.audioContext.currentTime) {
+        if (!this.isPlaying) {
+            const worklet = this.nodes.get('worklet');
+            const gain = this.nodes.get('gain');
+            
+            if (!worklet || !gain) {
+                console.error('Required nodes not found');
+                return;
+            }
 
-        time = Math.max(time, this.audioContext.currentTime);
-
-        // Cancelliamo tutte le automazioni precedenti
-        gainNode.gain.cancelScheduledValues(time);
-        gainNode.gain.setValueAtTime(0, time);
-        gainNode.gain.linearRampToValueAtTime(0.2, time + 0.002);
+            // Attiva il suono
+            gain.gain.setValueAtTime(1, time);
+            this.isPlaying = true;
+            console.log('Oscillator started at time:', time);
+        }
     }
 
-    stop(time = 0) {
-        const gainNode = this.nodes.get('gain');
-        if (!gainNode) return;
+    stop(time = this.audioContext.currentTime) {
+        if (this.isPlaying) {
+            const gain = this.nodes.get('gain');
+            if (gain) {
+                gain.gain.setValueAtTime(0, time);
+                this.isPlaying = false;
+                console.log('Oscillator stopped at time:', time);
+            }
+        }
+    }
 
-        time = Math.max(time, this.audioContext.currentTime);
-
-        // Cancelliamo tutte le automazioni precedenti
-        gainNode.gain.cancelScheduledValues(time);
-        gainNode.gain.setValueAtTime(gainNode.gain.value, time);
-        gainNode.gain.linearRampToValueAtTime(0, time + 0.002);
+    setFrequency(freq, time = this.audioContext.currentTime) {
+        const worklet = this.nodes.get('worklet');
+        if (worklet && worklet.parameters.has('frequency')) {
+            worklet.parameters.get('frequency').setValueAtTime(freq, time);
+            console.log('Set frequency to:', freq, 'at time:', time);
+        }
     }
 
     setFrequency(value, time) {
@@ -198,6 +240,13 @@ export default class Oscillator extends AbstractDSPProducer {
             param.linearRampToValueAtTime(value, time + 0.005);
             console.log('Set frequency to', value, 'at time', time);
         }
+    }
+
+    // Metodo per il piano roll
+    setNoteFrequency(freq, time = this.audioContext.currentTime) {
+        this.isNoteFrequency = true;
+        this.setParameter('frequency', freq, time);
+        this.isNoteFrequency = false;
     }
 
     // Aggiungi un metodo di sicurezza per verificare lo stato
