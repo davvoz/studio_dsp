@@ -3,17 +3,59 @@ export default class Transport {
         this.audioContext = audioContext;
         this.tempo = 120;
         this.isPlaying = false;
-        this.listeners = new Set();
-        this.currentBeat = 0;
-        this.nextBeatTime = 0;
-        this.schedulerId = null;
-        this.scheduleAheadTime = 0.1;    // How far ahead to schedule (sec)
-        this.schedulerInterval = 25;      // How often to check schedule (ms)
+        this.listeners = new Map();
+        
+        // Timing base
+        this.currentStep = 0;
+        this.nextStepTime = 0;
+        
+        // Struttura (16 step per battuta)
+        this.stepsPerBar = 16;
+        this.bars = 4;
+        this.totalSteps = this.bars * this.stepsPerBar;
+        
+        this.scheduleAheadTime = 0.1;
+        this.scheduleId = null;
+    }
+
+    _schedule() {
+        const currentTime = this.audioContext.currentTime;
+        const stepDuration = 60 / (this.tempo * 4); // Durata fissa di una sedicesima
+        
+        while (this.nextStepTime < currentTime + this.scheduleAheadTime) {
+            const beatEvent = {
+                time: this.nextStepTime,
+                stepIndex: this.currentStep,
+                step: this.currentStep % this.stepsPerBar,
+                bar: Math.floor(this.currentStep / this.stepsPerBar),
+                duration: stepDuration,
+                totalSteps: this.totalSteps
+            };
+
+            this.notifyListeners('beat', beatEvent);
+            
+            this.currentStep = (this.currentStep + 1) % this.totalSteps;
+            this.nextStepTime += stepDuration; // Usa sempre la stessa durata dello step
+        }
+
+        if (this.isPlaying) {
+            this.scheduleId = requestAnimationFrame(() => this._schedule());
+        }
     }
 
     setTempo(bpm) {
         this.tempo = Math.max(30, Math.min(300, bpm));
         this.notifyListeners('tempoChange', this.tempo);
+    }
+
+    setDivision(division) {
+        this.division = division;
+        this.notifyListeners('divisionChange', { division });
+    }
+
+    setNumberOfBars(bars) {
+        this.bars = bars;
+        this.notifyListeners('barsChange', { bars });
     }
 
     getBeatDuration() {
@@ -24,56 +66,31 @@ export default class Transport {
         return this.currentBeat;
     }
 
-    _schedule() {
-        if (!this.isPlaying) return;
-
-        const currentTime = this.audioContext.currentTime;
-
-        while (this.nextBeatTime < currentTime + this.scheduleAheadTime) {
-            const beatEvent = {
-                index: this.currentBeat % 16,
-                time: this.nextBeatTime,
-                tempo: this.tempo,
-                beatDuration: this.getBeatDuration()
-            };
-            
-            this.notifyListeners('beat', beatEvent);
-            
-            this.currentBeat++;
-            this.nextBeatTime += this.getBeatDuration();
-        }
-
-        // Assicurati che lo scheduler continui
-        if (this.isPlaying) {
-            this.schedulerId = setTimeout(() => this._schedule(), this.schedulerInterval);
-        }
-    }
-
     start() {
         if (this.isPlaying) return;
 
-        // Ensure audio context is running
         if (this.audioContext.state === 'suspended') {
             this.audioContext.resume();
         }
 
-        console.log('Transport starting...');
         this.isPlaying = true;
         this.currentBeat = 0;
-        
-        const currentTime = this.audioContext.currentTime;
-        this.nextBeatTime = currentTime + 0.1;
+        this.nextBeatTime = this.audioContext.currentTime + 0.1;
 
-        console.log(`Transport: First beat scheduled at ${this.nextBeatTime}`);
-        
-        // Notifica subito il primo beat
         this.notifyListeners('start', { 
             time: this.nextBeatTime,
-            beatDuration: this.getBeatDuration(),
-            index: 0
+            duration: this.getBeatDuration()
         });
+
+        // Use scheduleId for cancellation
+        const scheduleLoop = () => {
+            this._schedule();
+            if (this.isPlaying) {
+                this.scheduleId = requestAnimationFrame(scheduleLoop);
+            }
+        };
         
-        this._schedule();
+        scheduleLoop();
     }
 
     stop() {
@@ -82,19 +99,18 @@ export default class Transport {
         this.isPlaying = false;
         this.currentBeat = 0;
         
-        if (this.schedulerId) {
-            clearTimeout(this.schedulerId);
-            this.schedulerId = null;
+        if (this.scheduleId) {
+            cancelAnimationFrame(this.scheduleId);
+            this.scheduleId = null;
         }
 
-        // Notifica lo stop immediatamente
         const stopTime = this.audioContext.currentTime;
         this.notifyListeners('stop', { time: stopTime });
     }
 
     addListener(listener) {
         if (typeof listener.onTransportEvent === 'function') {
-            this.listeners.add(listener);
+            this.listeners.set(listener, listener.onTransportEvent);
         }
     }
 
@@ -103,10 +119,10 @@ export default class Transport {
     }
 
     notifyListeners(event, data) {
-        console.log('Transport: Notifying listeners of', event, 'with data:', data); // Debug log
-        this.listeners.forEach(listener => {
+        console.log('Transport: Notifying listeners of', event, 'with data:', data);
+        this.listeners.forEach((callback, listener) => {
             try {
-                listener.onTransportEvent(event, data);
+                callback.call(listener, event, data);
             } catch (error) {
                 console.error('Error in transport listener:', error);
             }

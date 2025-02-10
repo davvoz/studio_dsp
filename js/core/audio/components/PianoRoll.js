@@ -3,14 +3,11 @@ import AbstractDSPProcessor from '../processes/AbstractDSPProcessor.js';
 export default class PianoRoll extends AbstractDSPProcessor {
     constructor(audioContext, id) {
         super(audioContext, id);
-        this._notes = []; // Rinominato a _notes per evitare conflitti
+        this._notes = [];
         this.targets = new Set();
         this.transport = null;
-        this.gridResolution = 16; // 16th notes
-        this.totalBars = 1;
-        
-        // Add debug method call
-        setInterval(() => this.debugNoteCount(), 1000);
+        this.lastProcessedStep = -1;
+        this.ppq = 4; // 16th notes per beat
     }
 
     debugNoteCount() {
@@ -43,7 +40,8 @@ export default class PianoRoll extends AbstractDSPProcessor {
         this.transportListener = {
             onTransportEvent: (event, data) => {
                 if (event === 'beat') {
-                    this.processNotes(data.time, data.beatDuration);
+                    // Pass the entire beat data object instead of just duration
+                    this.processNotes(data.time, data);
                 } else if (event === 'stop') {
                     this.stopAllNotes(data?.time || this.audioContext.currentTime);
                 }
@@ -106,43 +104,28 @@ export default class PianoRoll extends AbstractDSPProcessor {
         return true;
     }
 
-    processNotes(time, beatDuration) {
-        const currentBeat = Math.floor(this.transport.getCurrentBeat());
-        const beatPosition = currentBeat % this.gridResolution;
+    processNotes(time, beatData) {
+        if (beatData.stepIndex === this.lastProcessedStep) return;
+        this.lastProcessedStep = beatData.stepIndex;
+
+        // Mantieni il timing consistente usando lo stesso calcolo della griglia visiva
+        const stepDuration = 60 / (this.transport.tempo * 4); // Durata di una sedicesima
         
-        for (const note of this._notes) {
-            const noteEndBeat = Math.floor((note.startTime + note.duration) * this.gridResolution);
-            if (noteEndBeat === beatPosition) {
-                this.targets.forEach(target => {
-                    target.trigger(time, { stopAll: true });
-                });
-            }
-        }
-
-        for (const note of this._notes) {
-            const noteBeatPosition = Math.floor(note.startTime * this.gridResolution);
+        this._notes.forEach(note => {
+            // Usa lo stesso calcolo del posizionamento visivo
+            const noteStep = Math.floor(note.startTime * beatData.totalSteps);
             
-            if (noteBeatPosition === beatPosition) {
-                const noteDurationInBeats = note.duration;
-                const durationInSeconds = noteDurationInBeats * beatDuration;
-
-                console.log('Playing note:', {
-                    beat: currentBeat,
-                    start: time,
-                    duration: durationInSeconds,
-                    pitch: note.pitch
-                });
-
+            if (noteStep === beatData.stepIndex) {
                 this.targets.forEach(target => {
                     target.trigger(time, {
                         note: note.pitch,
                         velocity: note.velocity,
-                        duration: durationInSeconds,
+                        duration: stepDuration, // Durata fissa di una sedicesima
                         startTime: time
                     });
                 });
             }
-        }
+        });
     }
 
     isNoteInCurrentBeat(note, currentBeat) {

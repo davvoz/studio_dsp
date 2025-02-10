@@ -387,3 +387,95 @@ input[type="range"] {
 .oscillator-panel .control-container input[type="range"] {
     width: 100%;
 }
+
+.grid-line.bar-line {
+    background-color: rgba(255, 255, 255, 0.3);
+    width: 2px;
+}
+
+.piano-roll-controls {
+    display: flex;
+    gap: 15px;
+    padding: 10px;
+    background: #2a2a2a;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.grid-division-select,
+.bars-input {
+    padding: 4px;
+    border-radius: 4px;
+    background: #2a2a2a;
+    color: white;
+    border: 1px solid #444;
+}
+
+/* Aggiungi questi stili */
+.note-grid {
+    position: relative;
+    background: #1a1a1a;
+    border-left: 1px solid #333;
+}
+
+.grid-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    pointer-events: none;
+}
+
+.grid-line.bar-line {
+    background: rgba(255, 255, 255, 0.3);
+    width: 2px;
+}
+
+.grid-line.beat-line {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.grid-line.subdivision-line {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.control-group label {
+    color: #ddd;
+    min-width: 50px;
+}
+
+.snap-select,
+.control-group input {
+    background: #333;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 4px 8px;
+    border-radius: 3px;
+}
+
+.zoom-value {
+    min-width: 45px;
+    color: #ddd;
+}
+
+.note {
+    position: absolute;
+    background: #4CAF50;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+
+.note:hover {
+    background: #45a049;
+}
+
+.note.selected {
+    background: #2196F3;
+}
