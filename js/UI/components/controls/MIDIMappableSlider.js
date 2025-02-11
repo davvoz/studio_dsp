@@ -146,7 +146,7 @@ export default class MIDIMappableSlider {
     updateMIDIIndicator() {
         this.midiIndicator.textContent = this.midiMapping ? 
             `MIDI ${this.midiMapping.channel}:${this.midiMapping.cc}` : 
-            'No MIDI mapping';
+            'No MIDI';
     }
 
     getValue() {

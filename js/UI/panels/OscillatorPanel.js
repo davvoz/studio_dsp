@@ -113,7 +113,7 @@ export default class OscillatorPanel extends Panel {
     addControl(control) {
         // Find or create the controls container
         let controlsContainer = this.element.querySelector('.controls-container');
-        
+        controlsContainer.classList.add('oscillator-controls-container');
 
         const controlContainer = document.createElement('div');
         controlContainer.className = 'control-container';
