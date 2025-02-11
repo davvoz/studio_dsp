@@ -40,10 +40,8 @@ export default class PianoRoll extends AbstractDSPProcessor {
         this.transportListener = {
             onTransportEvent: (event, data) => {
                 if (event === 'beat') {
-                    // Verifica che siamo entro i limiti delle battute configurate
-                    if (data.stepIndex < this.transport.totalSteps) {
-                        this.processNotes(data.time, data);
-                    }
+                    // Pass the entire beat data object instead of just duration
+                    this.processNotes(data.time, data);
                 } else if (event === 'stop') {
                     this.stopAllNotes(data?.time || this.audioContext.currentTime);
                 }
@@ -106,17 +104,7 @@ export default class PianoRoll extends AbstractDSPProcessor {
         return true;
     }
 
-    reset() {
-        this.lastProcessedStep = -1;
-        this.stopAllNotes(this.audioContext.currentTime);
-    }
-
     processNotes(time, beatData) {
-        // Reset lastProcessedStep se siamo tornati all'inizio
-        if (beatData.stepIndex === 0) {
-            this.lastProcessedStep = -1;
-        }
-
         if (beatData.stepIndex === this.lastProcessedStep) return;
         this.lastProcessedStep = beatData.stepIndex;
 

@@ -6,7 +6,7 @@ export default class PianoRollPanel extends Panel {
         super('piano-roll-panel', {
             title: 'Piano Roll',
             width: '900px',
-            height: 'auto',
+            height: '400px',
             draggable: true,
             collapsible: true
         });
@@ -14,23 +14,19 @@ export default class PianoRollPanel extends Panel {
         this.audioEngine = audioEngine;
         this.transport = audioEngine.getTransport();
 
+        // Create PianoRoll instance
+        this.pianoRoll = new PianoRoll(audioEngine.audioContext, 'piano-roll-' + Date.now());
+        this.pianoRoll.setTransport(this.transport);
+
         // Grid settings (16 steps per bar)
         this.config = {
             noteHeight: 20,
             stepWidth: 30,     // Larghezza di uno step
             stepsPerBar: 16,   // 16 step per battuta
-            bars: 1,
-            octaves: 7,        // Aumentato da 4 a 7 ottave
-            startOctave: 1     // Cambiato da 3 a 0
+            bars: 4,
+            octaves: 4,
+            startOctave: 3
         };
-
-        // Setup transport configuration
-        this.transport.bars = this.config.bars;
-        this.transport.totalSteps = this.config.bars * this.config.stepsPerBar;
-
-        // Create PianoRoll instance
-        this.pianoRoll = new PianoRoll(audioEngine.audioContext, 'piano-roll-' + Date.now());
-        this.pianoRoll.setTransport(this.transport);
 
         // Calculate total dimensions
         this.config.totalHeight = this.config.noteHeight * this.config.octaves * 12;
@@ -50,38 +46,26 @@ export default class PianoRollPanel extends Panel {
     create() {
         super.create();
         
-        // Get panel content element
         const content = this.element.querySelector('.panel-content');
-        content.style.cssText = ''; // Reset any inline styles
-
-        // Create visual divider after title
-        const divider = document.createElement('div');
-        divider.className = 'panel-divider';
-        content.appendChild(divider);
-
-        // Create and append controls container
-        const controlsContainer = document.createElement('div');
-        controlsContainer.className = 'controls-container';
-        content.appendChild(controlsContainer);
-
-        // Create controls
+        
+        // Aggiungi controlli griglia
         const controls = this.createControls();
-        controlsContainer.appendChild(controls);
-
-        // Create and append piano-roll interface container
-        const pianoRollInterface = document.createElement('div');
-        pianoRollInterface.className = 'piano-roll-interface';
-        content.appendChild(pianoRollInterface);
-
-        // Add piano roll components
+        
+        // Inserisci i controlli prima del container del piano roll
+        content.insertBefore(controls, content.firstChild);
+        
+        // Create flex container
         const pianoRollContainer = document.createElement('div');
         pianoRollContainer.className = 'piano-roll-container';
-        pianoRollInterface.appendChild(pianoRollContainer);
+        pianoRollContainer.style.display = 'flex';
         
-        // Add piano keys and grid
+        // Piano keys column
         this.createPianoKeys(pianoRollContainer);
+        
+        // Grid area
         this.createNoteGrid(pianoRollContainer);
         
+        content.appendChild(pianoRollContainer);
         this.setupEventListeners();
     }
 
@@ -123,7 +107,7 @@ export default class PianoRollPanel extends Panel {
         pianoKeys.className = 'piano-keys';
         pianoKeys.style.height = `${this.config.totalHeight}px`; // Set fixed height
         
-        const notes = ['B', 'A#', 'A', 'G#', 'G', 'F#', 'F', 'E', 'D#', 'D', 'C#', 'C']; // Ordine invertito
+        const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
         
         // Create keys from highest to lowest octave
         for (let octave = this.config.startOctave + this.config.octaves - 1; octave >= this.config.startOctave; octave--) {
@@ -139,6 +123,14 @@ export default class PianoRollPanel extends Panel {
         container.appendChild(pianoKeys);
     }
 
+    updateGridDimensions() {
+        const totalBeats = this.numberOfBars * this.beatsPerBar;
+        const totalSubdivisions = totalBeats * this.currentResolution.subbeats;
+        this.gridWidth = totalBeats * this.beatWidth;
+        this.subdivisionWidth = this.beatWidth / this.currentResolution.subbeats;
+        return { totalBeats, totalSubdivisions };
+    }
+
     createNoteGrid(container) {
         const gridContainer = document.createElement('div');
         gridContainer.className = 'note-grid-container';
@@ -150,20 +142,10 @@ export default class PianoRollPanel extends Panel {
         grid.style.height = '100%';
 
         // Create background grid for notes (horizontal lines)
-        const notes = ['B', 'A#', 'A', 'G#', 'G', 'F#', 'F', 'E', 'D#', 'D', 'C#', 'C']; // Ordine invertito
-        const totalRows = this.config.octaves * 12;
-        
-        // Crea le linee dalla più alta alla più bassa
-        for (let i = 0; i <= totalRows; i++) {
+        for (let i = 0; i <= this.config.octaves * 12; i++) {
             const line = document.createElement('div');
             line.className = 'horizontal-grid-line';
             line.style.top = `${i * this.config.noteHeight}px`;
-            
-            // Calcola la nota corrente
-            const noteIndex = i % 12;
-            const note = notes[noteIndex];
-            line.dataset.note = note;
-            
             grid.appendChild(line);
         }
 
@@ -244,7 +226,8 @@ export default class PianoRollPanel extends Panel {
 
     setupEventListeners() {
         this.grid.addEventListener('mousedown', (e) => {
-            if (e.button === 2) return; // Skip right click
+            // Previeni l'aggiunta di note con il tasto destro
+            if (e.button === 2) return; // 2 è il tasto destro
             this.handleGridMouseDown(e);
         });
         this.grid.addEventListener('mousemove', (e) => this.handleGridMouseMove(e));
@@ -284,23 +267,65 @@ export default class PianoRollPanel extends Panel {
 
     handleContextMenu(e) {
         e.preventDefault();
-
-        const noteElement = e.target.closest('.note');
-        if (!noteElement) return;
-
-        const noteId = Number(noteElement.dataset.noteId);
-        
-        // Aggiungi feedback visivo prima della rimozione
-        noteElement.classList.add('removing');
-        
-        // Rimuovi dopo l'animazione
-        setTimeout(() => {
-            if (this.pianoRoll.removeNote(noteId)) {
-                this.noteElements.delete(noteId);
+        if (e.target.classList.contains('note')) {
+            const noteId = Number(e.target.dataset.noteId);
+            const noteElement = this.noteElements.get(noteId);
+            
+            if (noteElement && this.pianoRoll.removeNote(noteId)) {
                 noteElement.remove();
-                console.log('Note removed:', noteId);
+                this.noteElements.delete(noteId);
             }
-        }, 200);
+        }
+    }
+
+    setupGridEvents() {
+        let lastMousePosition = null;
+        
+        const handleMouseDown = (e) => {
+            if (e.button === 2) return; // Skip right click
+            lastMousePosition = { x: e.clientX, y: e.clientY };
+            this.isDragging = true;
+            this.addNote(e);
+        };
+        
+        const handleMouseMove = (e) => {
+            if (!this.isDragging || !this.currentNote) return;
+            
+            const deltaX = e.clientX - lastMousePosition.x;
+            if (Math.abs(deltaX) >= this.subdivisionWidth) {
+                const newWidth = Math.max(
+                    this.subdivisionWidth,
+                    Math.round(parseInt(this.currentNote.style.width) / this.subdivisionWidth) * this.subdivisionWidth
+                );
+                this.resizeNote(this.currentNote, newWidth);
+                lastMousePosition.x = e.clientX;
+            }
+        };
+        
+        const handleMouseUp = () => {
+            this.isDragging = false;
+            this.currentNote = null;
+            lastMousePosition = null;
+        };
+
+        this.grid.addEventListener('mousedown', handleMouseDown);
+        this.grid.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        this.grid.addEventListener('contextmenu', this.handleContextMenu.bind(this));
+    }
+
+    resizeNote(noteElement, newWidth) {
+        noteElement.style.width = `${newWidth}px`;
+        const noteId = noteElement.dataset.noteId;
+        const duration = newWidth / this.beatWidth;
+        this.updateNoteDuration(noteId, duration);
+    }
+
+    quantizePosition(pos) {
+        const { subdivisionWidth } = this.calculateGridDimensions();
+        const snapDiv = parseInt(this.currentSettings.snap.split('/')[1]);
+        const snapWidth = this.baseBeatWidth * 4 / snapDiv * (this.gridSettings.zoom / 100);
+        return Math.round(pos / snapWidth) * snapWidth;
     }
 
     addNote(e) {
@@ -390,6 +415,13 @@ export default class PianoRollPanel extends Panel {
         noteElement.appendChild(label);
     }
 
+    gridYToNote(y) {
+        const noteIndex = Math.floor(y / this.noteHeight);
+        const octave = this.startOctave + Math.floor((11 - noteIndex) / 12);
+        const note = 11 - (noteIndex % 12);
+        return note + (octave * 12);
+    }
+
     connectToOscillator(oscillatorPanel) {
         if (!oscillatorPanel) {
             console.error('No oscillator panel provided');
@@ -441,6 +473,12 @@ export default class PianoRollPanel extends Panel {
 
         this.pianoRoll.addTarget(target);
         oscillatorPanel.setConnected(true);
+        
+        // Aggiungi indicatore di connessione
+        const connectionIndicator = document.createElement('div');
+        connectionIndicator.className = 'connection-indicator';
+        connectionIndicator.textContent = '⚡ Connected to Oscillator';
+        this.element.querySelector('.panel-content').appendChild(connectionIndicator);
     }
 
     midiNoteToFrequency(note) {
@@ -459,9 +497,108 @@ export default class PianoRollPanel extends Panel {
         super.dispose();
     }
 
+    // Aggiungi un metodo per visualizzare tutte le note
+    showAllNotes() {
+        console.log('All notes in grid:', Array.from(this.grid.querySelectorAll('.note'))
+            .map(el => ({
+                id: el.dataset.noteId,
+                left: el.style.left,
+                top: el.style.top
+            }))
+        );
+    }
+
+    // Aggiungi questo nuovo metodo per verificare la sincronizzazione
+    verifyNoteSync() {
+        const storedNotes = new Set(this.pianoRoll._notes.keys());
+        const domNotes = new Set(
+            Array.from(this.grid.querySelectorAll('.note'))
+                .map(el => parseInt(el.dataset.noteId))
+        );
+        
+        console.log('Note sync check:', {
+            stored: Array.from(storedNotes),
+            dom: Array.from(domNotes),
+            inSync: this.areSetsEqual(storedNotes, domNotes)
+        });
+    }
+
     areSetsEqual(a, b) {
         return a.size === b.size && 
                [...a].every(value => b.has(value));
+    }
+
+    setGridDivision(division) {
+        this.currentDivision = division;
+        this.gridColumns = this.currentDivision * this.numberOfBars;
+        this.updateGrid();
+    }
+
+    setNumberOfBars(bars) {
+        this.numberOfBars = bars;
+        this.gridColumns = this.currentDivision * this.numberOfBars;
+        this.updateGrid();
+    }
+
+    updateGrid(oldBars) {
+        if (!this.grid) return;
+        
+        const totalSteps = this.config.stepsPerBar * this.config.bars;
+        const oldTotalSteps = this.config.stepsPerBar * (oldBars || this.config.bars);
+        
+        // Store notes with their timing information
+        const notes = Array.from(this.grid.querySelectorAll('.note')).map(note => {
+            const currentX = parseInt(note.style.left);
+            const currentStep = Math.floor(currentX / this.config.stepWidth);
+            
+            // Calculate the current timing as a ratio of total steps
+            const currentTiming = currentStep / oldTotalSteps;
+            
+            return {
+                element: note,
+                timing: currentTiming,
+                pitch: parseInt(note.style.top) / this.config.noteHeight,
+                noteId: note.dataset.noteId
+            };
+        });
+
+        // Update grid dimensions
+        this.config.totalWidth = this.config.stepWidth * totalSteps;
+        this.grid.style.width = `${this.config.totalWidth}px`;
+        
+        // Recreate grid
+        this.grid.innerHTML = '';
+        this.createGridLines(this.grid);
+
+        // Reposition notes maintaining their relative timing
+        notes.forEach(note => {
+            // Convert timing ratio back to steps in new grid
+            const newStep = Math.floor(note.timing * totalSteps);
+            const x = newStep * this.config.stepWidth;
+            const y = note.pitch * this.config.noteHeight;
+            
+            note.element.style.left = `${x}px`;
+            note.element.style.top = `${y}px`;
+            this.grid.appendChild(note.element);
+
+            // Update note timing data in the PianoRoll
+            const startTime = note.timing; // Keep original timing ratio
+            const existingNote = this.pianoRoll.notes.find(n => n.id.toString() === note.noteId);
+            if (existingNote) {
+                existingNote.startTime = startTime;
+            }
+        });
+
+        // Recreate playhead
+        this.createPlayhead(this.grid);
+        this.setupEventListeners();
+    }
+
+    updateNoteStartTime(noteId, startTime) {
+        const note = this.pianoRoll.notes.find(n => n.id.toString() === noteId);
+        if (note) {
+            note.startTime = startTime;
+        }
     }
 
     setupControlEvents(controls) {
@@ -498,23 +635,28 @@ export default class PianoRollPanel extends Panel {
         // Number of bars
         barsInput?.addEventListener('change', (e) => {
             const newBars = Math.max(1, Math.min(16, parseInt(e.target.value)));
+            const oldBars = this.config.bars;
             
-            // Update configuration
+            // Mantieni il riferimento alle note esistenti con i loro step originali
+            const existingNotes = this.pianoRoll.notes.map(note => ({
+                ...note,
+                originalStep: Math.floor(note.startTime * (oldBars * this.config.stepsPerBar))
+            }));
+
+            // Aggiorna la configurazione
             this.config.bars = newBars;
             
-            // Update transport with new configuration
-            this.transport.stop(); // Stop playback before changing
+            // Aggiorna il transport senza modificare gli step delle note
             this.transport.bars = newBars;
             this.transport.totalSteps = newBars * this.config.stepsPerBar;
-            this.transport.reset(); // Reset transport state
 
-            // Update grid
-            this.updateGridWithOriginalSteps();
+            // Aggiorna la griglia mantenendo gli step originali
+            this.updateGridWithOriginalSteps(oldBars, existingNotes);
             this.updateBarDisplay(controls.querySelector('.bar-display'));
         });
     }
 
-    updateGridWithOriginalSteps() {
+    updateGridWithOriginalSteps(oldBars, existingNotes) {
         if (!this.grid) return;
 
         // 1. Salva le note esistenti con le loro posizioni attuali
@@ -536,33 +678,17 @@ export default class PianoRollPanel extends Panel {
         
         // 3. Ricrea la griglia
         this.grid.innerHTML = '';
-
-        // 4. Ricrea le linee orizzontali per le note con i colori corretti
-        const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        const totalRows = this.config.octaves * 12;
-        
-        for (let i = 0; i <= totalRows; i++) {
-            const line = document.createElement('div');
-            line.className = 'horizontal-grid-line';
-            line.style.top = `${i * this.config.noteHeight}px`;
-            
-            const noteIndex = (totalRows - i) % 12;
-            const note = notes[noteIndex];
-            line.dataset.note = note;
-            
-            this.grid.appendChild(line);
-        }
-
-        // 5. Ricrea le linee verticali della griglia
         this.createGridLines(this.grid);
         this.createPlayhead(this.grid);
 
-        // 6. Riposiziona le note
+        // 4. Riposiziona le note
         currentNotes.forEach(note => {
             // Mantieni la stessa posizione relativa
             const stepIndex = Math.floor(note.left / this.config.stepWidth);
             
+            // Se la nota è ancora all'interno della nuova griglia
             if (stepIndex < totalSteps) {
+                // Ricrea la nota nella stessa posizione
                 const noteElement = document.createElement('div');
                 noteElement.className = 'note';
                 noteElement.dataset.noteId = note.id;
@@ -574,6 +700,7 @@ export default class PianoRollPanel extends Panel {
                 this.grid.appendChild(noteElement);
                 this.noteElements.set(note.id, noteElement);
 
+                // Aggiorna il timing nel PianoRoll
                 const startTime = stepIndex / totalSteps;
                 const noteData = {
                     id: parseInt(note.id),
@@ -583,14 +710,66 @@ export default class PianoRollPanel extends Panel {
                     velocity: 1
                 };
 
+                // Aggiorna o aggiungi la nota nel PianoRoll
                 this.pianoRoll.removeNote(noteData.id);
                 this.pianoRoll.addNote(noteData);
                 
+                // Aggiorna le informazioni visive della nota
                 this.updateNoteInfo(noteElement, noteData.pitch, noteData.duration);
             }
         });
 
+        // 5. Debug info
+        console.log('Grid update complete:', {
+            totalNotes: currentNotes.length,
+            visibleNotes: this.grid.querySelectorAll('.note').length,
+            gridWidth: this.config.totalWidth
+        });
+
         this.setupEventListeners();
+    }
+
+    updateGrid(newWidth) {
+        if (!this.grid) return;
+        
+        // Calculate current grid dimensions
+        const { beatWidth, subdivisionWidth } = this.calculateGridDimensions();
+        const totalWidth = this.config.bars * this.config.beatsPerBar * beatWidth;
+        
+        // Store references to existing notes and their relative positions
+        const notes = Array.from(this.grid.querySelectorAll('.note')).map(note => ({
+            element: note,
+            relativeX: parseInt(note.style.left) / this.grid.clientWidth,
+            duration: parseInt(note.style.width) / beatWidth // Store duration in beats
+        }));
+
+        // Update grid dimensions
+        this.grid.style.width = `${totalWidth}px`;
+        
+        // Clear and recreate grid lines
+        const oldLines = this.grid.querySelectorAll('.grid-line');
+        oldLines.forEach(line => line.remove());
+        this.createGridLines(this.grid);
+
+        // Reposition notes with correct scaling
+        notes.forEach(note => {
+            const newX = note.relativeX * totalWidth;
+            const newWidth = note.duration * beatWidth;
+            
+            note.element.style.left = `${Math.round(newX)}px`;
+            note.element.style.width = `${Math.round(newWidth)}px`;
+            
+            // Update note data
+            const noteId = note.element.dataset.noteId;
+            this.updateNoteDuration(noteId, note.duration);
+        });
+
+        // Ensure grid container shows correct portion
+        const container = this.grid.parentElement;
+        requestAnimationFrame(() => {
+            const maxScroll = container.scrollWidth - container.clientWidth;
+            container.scrollLeft = Math.min(container.scrollLeft, maxScroll);
+        });
     }
 
     setupTransportListener() {
@@ -616,6 +795,22 @@ export default class PianoRollPanel extends Panel {
         if (this.mode === 'compose') {
             this.scrollToBar(this.currentBar);
         }
+    }
+
+    updateStepDisplay(display) {
+        const bar = Math.floor(this.currentStepIndex / this.config.stepsPerBar) + 1;
+        const step = (this.currentStepIndex % this.config.stepsPerBar) + 1;
+        display.textContent = `${bar}.${step}`;
+    }
+
+    movePlayheadToStep(stepIndex) {
+        if (!this.grid || !this.playhead) return;
+        const position = stepIndex * this.config.stepWidth;
+        this.playhead.style.left = `${position}px`;
+        
+        // Auto-scroll
+        const container = this.grid.parentElement;
+        container.scrollLeft = position - (container.clientWidth / 2);
     }
 
     updateBarDisplay(display) {

@@ -44,7 +44,7 @@ export default class Transport {
     }
 
     setTempo(bpm) {
-        this.tempo = Math.max(30, Math.min(600, bpm));
+        this.tempo = Math.max(30, Math.min(300, bpm));
         this.notifyListeners('tempoChange', this.tempo);
     }
 
@@ -98,8 +98,6 @@ export default class Transport {
         
         this.isPlaying = false;
         this.currentBeat = 0;
-        this.currentStep = 0;
-        this.nextStepTime = 0;
         
         if (this.scheduleId) {
             cancelAnimationFrame(this.scheduleId);
@@ -107,10 +105,7 @@ export default class Transport {
         }
 
         const stopTime = this.audioContext.currentTime;
-        this.notifyListeners('stop', { 
-            time: stopTime,
-            reset: true  // Indichiamo che è uno stop completo
-        });
+        this.notifyListeners('stop', { time: stopTime });
     }
 
     addListener(listener) {

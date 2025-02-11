@@ -1,17 +1,17 @@
 .oscillator-panel {
-    background: var(--bg-color-light);
-    padding: var(--spacing-lg);
-    border-radius: var(--panel-radius);
+    background: linear-gradient(145deg, #2a2a2a, #333333);
+    padding: 20px;
+    border-radius: 10px;
     width: 350px;
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 /* Title section */
 .oscillator-panel .panel-header {
-    background: var(--bg-color-lighter);
-    border-radius: var(--panel-radius);
-    padding: var(--spacing-md);
-    margin-bottom: var(--spacing-lg);
+    background: linear-gradient(90deg, #3a3a3a, #2d2d2d);
+    border-radius: 6px;
+    padding: 12px 15px;
+    margin-bottom: 20px;
 }
 
 .oscillator-panel .panel-title {
@@ -22,7 +22,7 @@
 }
 
 /* Controls layout */
-.oscillator-controls-container {
+.controls-container {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 15px;
@@ -57,9 +57,9 @@
 /* Control containers */
 .control-container {
     background: rgba(0, 0, 0, 0.15);
-    padding: var(--spacing-md);
-    border-radius: var(--input-radius);
-    transition: background var(--transition-normal);
+    padding: 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
 }
 
 .control-container:hover {
