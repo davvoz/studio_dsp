@@ -1,5 +1,55 @@
 .piano-roll-panel .panel-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
     overflow: hidden;
+    transition: all 0.3s ease-out;
+    max-height: 900px;
+    transition: max-height 0.3s ease-out;
+    background: var(--bg-color-dark);
+}
+
+.piano-roll-panel.collapsed .panel-content {
+    height: 0;
+    overflow: hidden;
+    max-height: 0 !important;
+}
+
+.piano-roll-panel .panel-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 10px 0;
+}
+
+.piano-roll-panel .controls-container {
+    flex: 0 0 auto;
+    padding: 10px;
+    background: var(--bg-color-dark);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-color-darker);
+}
+
+.piano-roll-panel .piano-roll-interface {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-color-darker);
+}
+
+.piano-roll-panel .piano-roll-container {
+    flex: 1;
+    display: flex;
+    min-height: 0; /* Importante per il corretto scroll */
+    transition: opacity 0.3s ease-out, max-height 0.3s ease-out;
+    overflow: hidden;
+    background: var(--bg-color-darker);
+}
+
+.piano-roll-panel.collapsed .piano-roll-container {
+    max-height: 0;
+    opacity: 0;
 }
 
 .piano-keys {
@@ -35,13 +85,16 @@
     position: relative;
     background: #1a1a1a;
     scroll-behavior: smooth;
-    contain: strict;  /* Improve performance */
-    isolation: isolate;  /* Create new stacking context */
+    contain: strict;
+    /* Improve performance */
+    isolation: isolate;
+    /* Create new stacking context */
 }
 
 .note-grid {
     position: relative;
-    height: calc(20px * 48); /* 4 ottave * 12 note */
+    height: calc(20px * 48);
+    /* 4 ottave * 12 note */
     display: grid;
     grid-template-columns: repeat(16, 50px);
 }
@@ -58,43 +111,39 @@
     opacity: 0.8;
     cursor: pointer;
     transition: all 0.2s ease-out;
-    z-index: 1;  /* Ensure proper stacking */
-    min-height: 20px;  /* Match noteHeight */
+    z-index: 1;
+    /* Ensure proper stacking */
+    min-height: 20px;
+    /* Match noteHeight */
     box-sizing: border-box;
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .note:hover {
     opacity: 1;
     transform: scale(1.02);
-    z-index: 2;  /* Bring hovered note to front */
+    z-index: 2;
+    /* Bring hovered note to front */
 }
 
 .note:active {
     opacity: 0.6;
 }
 
-.note.deletable {
-    background: #f44;
-    opacity: 0.8;
-}
-
-.note.deletable:hover {
-    opacity: 1;
-    cursor: not-allowed;
-}
-
 .note.removing {
+    background: #f44;
     opacity: 0;
     transform: scale(0.8);
     pointer-events: none;
+    transition: all 0.2s ease-out;
 }
 
-/* Add visual feedback for note removal */
-.note.contextmenu {
-    background: #f44;
-    opacity: 0.9;
-    border: 1px solid #fff;
+/* Rimuovi gli stili non necessari */
+.note.deletable,
+.note.contextmenu,
+.delete-mode,
+.mode-btn.delete-mode {
+    display: none;
 }
 
 .note-label {
@@ -103,7 +152,7 @@
     left: 0;
     font-size: 9px;
     color: #fff;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0, 0, 0, 0.7);
     padding: 2px 4px;
     border-radius: 2px;
     pointer-events: none;
@@ -175,4 +224,378 @@
 
 .note:hover {
     background: #45a049;
+}
+
+.horizontal-grid-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+}
+
+/* Colori per le note */
+.horizontal-grid-line[data-note="C"],
+.horizontal-grid-line[data-note="D"],
+.horizontal-grid-line[data-note="E"],
+.horizontal-grid-line[data-note="F"],
+.horizontal-grid-line[data-note="G"],
+.horizontal-grid-line[data-note="A"],
+.horizontal-grid-line[data-note="B"] {
+    background: rgba(255, 255, 255, 0.08);
+    height: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.horizontal-grid-line[data-note="C#"],
+.horizontal-grid-line[data-note="D#"],
+.horizontal-grid-line[data-note="F#"],
+.horizontal-grid-line[data-note="G#"],
+.horizontal-grid-line[data-note="A#"] {
+    background: rgba(0, 0, 0, 0.3);
+    height: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Evidenzia le note C per riferimento */
+.horizontal-grid-line[data-note="C"] {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.piano-roll-container {
+    display: flex;
+    height: 500px; /* Aumentato da 300px a 500px per accomodare più ottave */
+    background: #1a1a1a;
+    overflow: hidden;
+    border: 1px solid #333;
+    overflow: auto;
+    transition: opacity 0.3s ease-out;
+}
+
+.piano-roll-panel.collapsed .piano-roll-container {
+    opacity: 0;
+}
+
+.piano-keys {
+    width: 60px;
+    flex-shrink: 0;
+    border-right: 1px solid #333;
+    overflow-y: hidden;
+}
+
+.piano-key {
+    height: 20px;
+    display: flex;
+    align-items: center;
+    padding: 0 5px;
+    border-bottom: 1px solid #333;
+    font-size: 11px;
+}
+
+.piano-key.white {
+    background: #fff;
+    color: #000;
+}
+
+.piano-key.black {
+    background: #222;
+    color: #fff;
+}
+
+.note-grid-container {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    border-left: 1px solid #333;
+}
+
+.note-grid {
+    position: relative;
+    background: #1a1a1a;
+    min-width: 100%;
+}
+
+.horizontal-grid-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+}
+
+.grid-container {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+}
+
+.note-grid {
+    position: relative;
+    height: 100%;
+}
+
+.grid-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+}
+
+.grid-line.bar {
+    background: rgba(255, 255, 255, 0.5);
+    width: 2px;
+}
+
+.grid-line.step {
+    background: rgba(255, 255, 255, 0.1);
+    width: 1px;
+}
+
+.grid-line.quarter {
+    background: rgba(255, 255, 255, 0.3);
+    width: 1px;
+}
+
+.grid-line.beat {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.grid-line.subdivision {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.note {
+    position: absolute;
+    height: 20px;
+    background: #4CAF50;
+    border-radius: 3px;
+    cursor: pointer;
+    overflow: hidden;
+    user-select: none;
+}
+
+.note-label {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.8);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: red;
+    pointer-events: none;
+}
+
+.piano-roll-controls {
+    padding: 10px;
+    background: #2a2a2a;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.step-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 10px;
+    background: #333;
+    border-radius: 4px;
+}
+
+.step-controls button {
+    background: #444;
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.step-controls button:hover {
+    background: #555;
+}
+
+.step-display {
+    font-family: monospace;
+    font-size: 14px;
+    min-width: 40px;
+    text-align: center;
+    background: #222;
+    padding: 4px 8px;
+    border-radius: 3px;
+}
+
+.mode-select {
+    background: #333;
+    color: white;
+    border: 1px solid #444;
+    padding: 4px 8px;
+    border-radius: 3px;
+}
+
+.mode-group {
+    display: flex;
+    gap: 2px;
+}
+
+.mode-btn {
+    padding: 5px 15px;
+    background: #333;
+    border: 1px solid #444;
+    color: #fff;
+    cursor: pointer;
+}
+
+.mode-btn.active {
+    background: #4CAF50;
+    border-color: #45a049;
+}
+
+.bar-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 15px;
+    background: #333;
+    border-radius: 4px;
+}
+
+.bar-display {
+    min-width: 100px;
+    text-align: center;
+    font-family: monospace;
+}
+
+/*miglioriamo le scrollbar*/
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    /*i colori di default sono:*/
+    background-color: var(--bg-color);
+}
+
+/* Colori dei tasti e delle linee della griglia */
+.piano-key[data-note="C"],
+.horizontal-grid-line[data-note="C"] {
+    background: #fff;
+    border-top: 1px solid #444;
+}
+
+.piano-key[data-note="C#"],
+.horizontal-grid-line[data-note="C#"] {
+    background: #222;
+}
+
+.piano-key[data-note="D"],
+.horizontal-grid-line[data-note="D"] {
+    background: #fff;
+}
+
+.piano-key[data-note="D#"],
+.horizontal-grid-line[data-note="D#"] {
+    background: #222;
+}
+
+.piano-key[data-note="E"],
+.horizontal-grid-line[data-note="E"] {
+    background: #fff;
+}
+
+.piano-key[data-note="F"],
+.horizontal-grid-line[data-note="F"] {
+    background: #fff;
+    border-top: 1px solid #444;
+}
+
+.piano-key[data-note="F#"],
+.horizontal-grid-line[data-note="F#"] {
+    background: #222;
+}
+
+.piano-key[data-note="G"],
+.horizontal-grid-line[data-note="G"] {
+    background: #fff;
+}
+
+.piano-key[data-note="G#"],
+.horizontal-grid-line[data-note="G#"] {
+    background: #222;
+}
+
+.piano-key[data-note="A"],
+.horizontal-grid-line[data-note="A"] {
+    background: #fff;
+}
+
+.piano-key[data-note="A#"],
+.horizontal-grid-line[data-note="A#"] {
+    background: #222;
+}
+
+.piano-key[data-note="B"],
+.horizontal-grid-line[data-note="B"] {
+    background: #fff;
+}
+
+.horizontal-grid-line[data-note="C#"],
+.horizontal-grid-line[data-note="D#"],
+.horizontal-grid-line[data-note="F#"],
+.horizontal-grid-line[data-note="G#"],
+.horizontal-grid-line[data-note="A#"] {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.horizontal-grid-line[data-note="C"],
+.horizontal-grid-line[data-note="D"],
+.horizontal-grid-line[data-note="E"],
+.horizontal-grid-line[data-note="F"],
+.horizontal-grid-line[data-note="G"],
+.horizontal-grid-line[data-note="A"],
+.horizontal-grid-line[data-note="B"] {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Evidenzia le note C per riferimento */
+.horizontal-grid-line[data-note="C"] {
+    background: rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Stili per le linee della griglia verticali */
+.grid-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    pointer-events: none;
+}
+
+.grid-line.bar {
+    background: #4a90e2; /* Blu brillante */
+    width: 2px;
+    box-shadow: 0 0 2px rgba(74, 144, 226, 0.5);
+}
+
+.grid-line.step {
+    background: rgba(74, 144, 226, 0.15); /* Blu tenue */
+    width: 1px;
+}
+
+.grid-line.step.quarter {
+    background: #4a90e2; /* Blu brillante come le barre */
+    opacity: 0.5;
+    width: 1px;
+    box-shadow: 0 0 1px rgba(74, 144, 226, 0.3);
 }

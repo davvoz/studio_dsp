@@ -131,11 +131,6 @@ export default class SequencerPanel extends Panel {
         this.sequencer.addTarget(target);
         console.log('Connected oscillator to sequencer:', this.connectedOscillator.id);
 
-        // Aggiungi indicatore di connessione al sequencer
-        const connectionLabel = document.createElement('div');
-        connectionLabel.className = 'connection-label';
-        connectionLabel.textContent = `⚡ Connected to ${oscillatorPanel.id}`;
-        this.element.querySelector('.panel-content').appendChild(connectionLabel);
     }
 
     triggerVisualFeedback(oscillatorPanel) {
